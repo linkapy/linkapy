@@ -89,5 +89,5 @@ def example(ctx, **kwargs) -> None:
     Download test data and get an example command to use Linkapy to generate matrices.
     '''
     from linkapy.example import Linkapy_Example
-    Linkapy_Example(kwargs.get('output'))
+    Linkapy_Example(kwargs.get('output', 'linkapy_example'))
     

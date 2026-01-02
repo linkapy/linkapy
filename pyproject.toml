@@ -55,6 +55,13 @@ exclude = [
   "docs",
   "tests"
 ]
+[tool.ty.rules]
+unresolved-import = "ignore" # pyo3 / rust code fails to import in checks. Ignore.
+[tool.ty.src]
+exclude = [
+    "python/tests/*",
+]
+
 [tool.pixi.workspace]
 channels = ["conda-forge", "bioconda"]
 platforms = ["linux-64", "osx-arm64", "osx-64", "win-64"]
