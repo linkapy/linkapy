@@ -237,7 +237,7 @@ class Linkapy_Parser:
         if len(_cells) > 1:
             self.logger.info("Attempt to match cells across different anndata objects.")
             renamed_obs, rename_df = match_cells(_cells, _patterns)
-            if renamed_obs:
+            if renamed_obs and rename_df is not None:
                 self.logger.info("Matching of cells across anndata objects successfull.")
                 rename_df.to_csv(self.output / 'cell_renaming.tsv', sep='\t', index=False)
                 self.logger.info(f"Dataframe used to rename cells written to {str(self.output / 'cell_renaming.tsv')}.")
@@ -250,8 +250,9 @@ class Linkapy_Parser:
                 pattern: _ad for pattern, _ad in zip(_patterns, _adatas)
             }
         )
-        mudata.write(self.output / f"{self.project}.h5mu")
-        self.logger.info(f"MuData object written to {self.output / f'{self.project}.h5mu'}")
+        _of = (self.output / f"{self.project}.h5mu").as_posix()
+        mudata.write(_of)
+        self.logger.info(f"MuData object written to {_of}")
 
 def parse_rna(files, prefix) -> None:
     '''
@@ -301,10 +302,12 @@ def read_rna_to_anndata(prefix) -> ad.AnnData:
     del _meta['Geneid']
     annd = ad.AnnData(
         X=sp.sparse.csr_matrix(_counts.values.T),
-        obs=pd.DataFrame(index=list(_counts.columns)),
+        obs=pd.DataFrame(index=_counts.columns),
         var=_meta
     )
-    return annd[annd.obs.sort_index().index, :].copy()
+    obs_df = annd.obs
+    assert isinstance(obs_df, pd.DataFrame)
+    return annd[obs_df.sort_index().index, :].copy()
 
 def read_meth_to_anndata(prefix) -> ad.AnnData:
     '''
@@ -317,7 +320,8 @@ def read_meth_to_anndata(prefix) -> ad.AnnData:
     X = sp.io.mmread(methp).tocsr()
     
     _obs = pl.read_csv(cellp, separator='\t', has_header=False).to_pandas()
-    _obs = pd.DataFrame(index=[Path(i).name.split('.')[0] for i in _obs['column_1']])
+    obs_index = pd.Index([Path(i).name.split('.')[0] for i in _obs['column_1']], dtype="string")
+    _obs = pd.DataFrame(index=obs_index)
     _var = pl.read_csv(regp, separator='\t', has_header=True).to_pandas()
     _var.index = _var.index.astype(str)
     annd = ad.AnnData(
@@ -325,7 +329,9 @@ def read_meth_to_anndata(prefix) -> ad.AnnData:
         obs=_obs,
         var=_var
     )
-    return annd[annd.obs.sort_index().index, :].copy()
+    obs_df = annd.obs
+    assert isinstance(obs_df, pd.DataFrame)
+    return annd[obs_df.sort_index().index, :].copy()
 
 def match_cells(_l: List[List[str]], patterns: List[str]) -> tuple[List[List[str]], pd.DataFrame]|tuple[None, None]:
     '''
@@ -367,7 +373,7 @@ def match_cells(_l: List[List[str]], patterns: List[str]) -> tuple[List[List[str
     return (renl, a)
 
 
-def get_common_cellname(cellnames: List[str]) -> str:
+def get_common_cellname(cellnames: List[str]) -> str | float:
     ref = cellnames[0]
     for name in cellnames[1:]:
         sm = SequenceMatcher(None, ref, name)
