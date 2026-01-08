@@ -4,7 +4,7 @@ import mudata as md
 from conftest import mu_to_dense
 import numpy as np
 
-class TestAllcools:
+class TestParsing:
     @pytest.mark.parametrize(
         "dynamic_methylation_path,methylation_pattern",
         [
