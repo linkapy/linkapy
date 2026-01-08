@@ -185,11 +185,7 @@ class Linkapy_Parser:
                 # Don't rerun if the files already exist.
                 _countf = _prefix.with_name(_prefix.name + "_counts.arrow")
                 _metaf = _prefix.with_name(_prefix.name + "_meta.arrow")
-                if not (_countf.exists() and _metaf.exists()):
-                    parse_rna(files, _prefix)
-                    self.logger.info(f"RNA pattern \'{pattern}\' written with {_prefix}")
-                else:
-                    self.logger.info(f"RNA pattern \'{pattern}\' files already exist.")
+                parse_rna(files, _prefix)
         
         # Methylation
         if self.methylation_files:

@@ -2,7 +2,7 @@ from importlib import metadata
 import click
 from rich import print
 
-@click.group()
+@click.group(invoke_without_command=True)
 @click.help_option("-h", "--help")
 @click.version_option(version=metadata.version('linkapy'), prog_name='linkapy')
 def linkapy() -> None:
@@ -27,6 +27,7 @@ def linkapy() -> None:
 @click.option('--blacklist', type=click.Path(exists=True), multiple=True, default=(), help='Path of regions (bed format) to exclude from aggregation. Can be specified multiple times. Note that these are only relevant for methylation data.')
 @click.option('--binsize', '-b', type=int, default=10000, help='Size of bins for aggregating methylation data over. Only used if chromsizes are provided.')
 @click.option('--project', '-p', type=str, default='linkapy', help='Project name. Effectively used as a prefix for the output files.')
+@click.option('--cli_test', hidden=True, is_flag=True, help='Internal flag to indicate pytest of CLI itself. No actual processing is done.')
 @click.option('--verbose', '-v', is_flag=True, help='Enable debugging output.')
 @click.pass_context
 def parsing(ctx, **kwargs) -> None:
@@ -50,8 +51,11 @@ def parsing(ctx, **kwargs) -> None:
         # methylation pattern and names are set in Linkapy_Parser
         kwargs['methylation_pattern'] = ()
         kwargs['methylation_pattern_names'] = ()
+        # Don't actually reach runner in testing mode.
+        if kwargs['cli_test']:
+            return
 
-    try:
+    try: # pragma: no cover
         from linkapy.parsing import Linkapy_Parser
         lp = Linkapy_Parser(
             methylation_path=kwargs.get('methylation_path'),
@@ -77,8 +81,6 @@ def parsing(ctx, **kwargs) -> None:
         raise click.ClickException(f"ERROR: {str(e)}. Please check the provided paths.")
     except AssertionError as e:
         raise click.ClickException(f"ERROR: {str(e)}. Please check the provided parameters")
-
-    return
 
 @linkapy.command(context_settings={"show_default": True})
 @click.help_option("-h", "--help")
