@@ -1,6 +1,7 @@
 import pytest
 import gzip
 import numpy as np
+import logging
 
 '''
 Create fixtures for testing.

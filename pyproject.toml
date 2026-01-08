@@ -51,10 +51,15 @@ Homepage = "https://github.com/WardDeb/linkapy"
 Repository = "https://github.com/WardDeb/linkapy"
 Documentation = "https://linkapy.readthedocs.io/en/stable/"
 
+[tool.coverage.run]
+omit = [
+    "python/linkapy/example.py",
+]
+
 [tool.coverage.report]
 exclude_also = [
     "def example",
-    "as e:"
+    "as e:",
 ]
 [tool.ruff]
 exclude = [

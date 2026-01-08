@@ -3,6 +3,46 @@ from linkapy.parsing import Linkapy_Parser
 import mudata as md
 from conftest import mu_to_dense
 import numpy as np
+class TestVerboseParsing:
+    def test_parser_blacklist_verbose(self, tmp_path, bed_path, allcools_path, rna_path):
+        '''
+        Test blacklist exclusion.
+        '''
+        lp = Linkapy_Parser(
+            methylation_path = str(allcools_path),
+            transcriptome_path = str(rna_path),
+            output = str(tmp_path / 'output'),
+            methylation_pattern = ('*WCGN*tsv.gz', '*GCHN*tsv.gz'),
+            methylation_pattern_names = ('WCGN', 'GCHN'),
+            transcriptome_pattern = ('*tsv',),
+            NOMe = False,
+            threads = 2,
+            chromsizes = None,
+            regions = (str(bed_path / 'gene1.bed'), str(bed_path / 'gene2.bed.gz')),
+            blacklist = (str(bed_path / 'blacklist1.bed'), str(bed_path / 'blacklist2.bed')),
+            binsize = 20,
+            project = 'blacklist_test',
+            verbose=True
+        )
+        lp.parse()
+
+        # Output checks.
+        mo = tmp_path / 'output' / 'blacklist_test.h5mu'
+        assert mo.exists(), "muData object not created."
+        mu = md.read(mo)
+        assert mu.shape == (3,6), f"Expected shape (3, 6), got {mu.shape}."
+        assert set(mu.obs.index) == set(['cell1', 'cell2', 'cell3']), f"Obs inferral failed, got {mu.obs.index}."
+
+        # Assert WCGN part.
+        dense = mu_to_dense(mu, 'METH_WCGN')
+        exp_WCGN = np.array([0.25, np.nan, np.nan, 0.5, 1, 0]).reshape(3,2)
+        assert np.allclose(dense, exp_WCGN, equal_nan=True), f"Expected WCGN dense matrix:{exp_WCGN}, got {dense}"
+        
+        # Assert GCHN part.
+        dense = mu_to_dense(mu, 'METH_GCHN')
+        exp_GCHN = np.array([0.25, np.nan, np.nan, 0.44, 1, 0]).reshape(3,2)
+        assert np.allclose(dense, exp_GCHN, equal_nan=True), f"Expected WCGN dense matrix:{exp_GCHN}, got {dense}"
+
 
 class TestParsing:
     @pytest.mark.parametrize(
@@ -79,6 +119,7 @@ class TestParsing:
     def test_parser_regions(self, tmp_path, bed_path, dynamic_methylation_path, methylation_pattern, rna_path, bedfiles):
         '''
         test bed files (bed and bed.gz)
+        Include verbose mode in logger too.
         '''
         lp = Linkapy_Parser(
             methylation_path = str(dynamic_methylation_path),
@@ -93,7 +134,8 @@ class TestParsing:
             regions = (str(bed_path / bedfiles[0]), str(bed_path / bedfiles[1])),
             blacklist = (),
             binsize = 20,
-            project = 'regions_test'
+            project = 'regions_test',
+            verbose=True
         )
         lp.parse()
 
