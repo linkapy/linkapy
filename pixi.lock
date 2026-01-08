@@ -1633,7 +1633,7 @@ packages:
 - pypi: ./
   name: linkapy
   version: 1.5.0
-  sha256: 546a9ea23109041c59c974e5b2620620e1441adef271025db9ed768c1d35302d
+  sha256: 28969fe36d130939d38f98385819e676d05b881a6ed8217c7084213e53ab3e15
   requires_dist:
   - anndata>=0.11.1
   - click>=8.2.1
@@ -1644,6 +1644,7 @@ packages:
   - scanpy>=1.10.4
   - tables>=3.10.1
   - levenshtein>=0.27.1
+  - build ; extra == 'build'
   - ruff ; extra == 'dev'
   - ty ; extra == 'dev'
   - pytest ; extra == 'dev'
@@ -1652,7 +1653,6 @@ packages:
   - sphinx-rtd-theme ; extra == 'docs'
   - sphinx-autoapi ; extra == 'docs'
   - sphinx-click ; extra == 'docs'
-  - build ; extra == 'build'
   requires_python: '>=3.10,<3.13'
   editable: true
 - pypi: https://files.pythonhosted.org/packages/15/86/e3c3195b92e6e492458f16d233e58a1a812aa2bfbef9bdd0fbafcec85c60/llvmlite-0.44.0-cp312-cp312-macosx_10_14_x86_64.whl
