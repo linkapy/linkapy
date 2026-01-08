@@ -44,7 +44,7 @@ class TestVerboseParsing:
         assert np.allclose(dense, exp_GCHN, equal_nan=True), f"Expected WCGN dense matrix:{exp_GCHN}, got {dense}"
 
 
-class TestParsing:
+class TestBasicParsing:
     @pytest.mark.parametrize(
         "dynamic_methylation_path,methylation_pattern",
         [
@@ -297,3 +297,229 @@ class TestParsing:
         exp_GCHN = np.array([0.25, np.nan, np.nan, 0.44, 1, 0]).reshape(3,2)
         assert np.allclose(dense, exp_GCHN, equal_nan=True), f"Expected WCGN dense matrix:{exp_GCHN} Got:\n{dense}"
 
+
+class TestExceptionParsing:
+    def test_nopaths(self, tmp_path, bed_path, allcools_path):
+        '''
+        Neither meth - nor rna path provided.
+        '''
+        with pytest.raises(ValueError):
+            lp = Linkapy_Parser(
+                methylation_path = None,
+                transcriptome_path = None,
+                output = str(tmp_path / 'output'),
+                NOMe = True,
+                threads = 2,
+                chromsizes = None,
+                regions = (str(bed_path / 'gene1.bed'), str(bed_path / 'gene2.bed')),
+                blacklist = (),
+                binsize = 20,
+                project = 'failpath'
+            )
+        
+    def test_noregs(self, tmp_path, bed_path, allcools_path):
+        '''
+        no chromsizes or regions error out too.
+        '''
+        with pytest.raises(ValueError):
+            lp = Linkapy_Parser(
+                methylation_path = str(allcools_path),
+                transcriptome_path = None,
+                output = str(tmp_path / 'output'),
+                NOMe = True,
+                threads = 2,
+                chromsizes = None,
+                regions = (),
+                blacklist = (),
+                binsize = 20,
+                project = 'failpath'
+            )
+    
+    def test_bothregs(self, tmp_path, bed_path, allcools_path, rna_path):
+        '''
+        both chromsizes and regions default to regions.
+        '''
+        lp = Linkapy_Parser(
+            methylation_path = str(allcools_path),
+            transcriptome_path = str(rna_path),
+            output = str(tmp_path / 'output'),
+            methylation_pattern = ('*WCGN*tsv.gz', '*GCHN*tsv.gz'),
+            methylation_pattern_names = ('WCGN', 'GCHN'),
+            transcriptome_pattern = ('*tsv',),
+            NOMe = False,
+            threads = 2,
+            chromsizes = str(bed_path / 'genome.chromsizes'),
+            regions = (str(bed_path / 'gene1.bed'), str(bed_path / 'gene2.bed.gz')),
+            blacklist = (),
+            binsize = 20,
+            project = 'fail_both_regs'
+        )
+        assert lp.chromsizes is None
+
+    def test_wrongmethpath(self, tmp_path, bed_path, rna_path):
+        '''
+        wrong methylation path.
+        '''
+        with pytest.raises(FileNotFoundError):
+            lp = Linkapy_Parser(
+                methylation_path = str(tmp_path / 'nonexistent_path'),
+                transcriptome_path = str(rna_path),
+                output = str(tmp_path / 'output'),
+                methylation_pattern = ('*WCGN*tsv.gz', '*GCHN*tsv.gz'),
+                methylation_pattern_names = ('WCGN', 'GCHN'),
+                transcriptome_pattern = ('*tsv',),
+                NOMe = False,
+                threads = 2,
+                chromsizes = None,
+                regions = (str(bed_path / 'gene1.bed'), str(bed_path / 'gene2.bed.gz')),
+                blacklist = (),
+                binsize = 20,
+                project = 'wrong_meth_path'
+            )
+    
+    def test_wrongrnapath(self, tmp_path, bed_path, allcools_path):
+        '''
+        wrong rna path.
+        '''
+        with pytest.raises(FileNotFoundError):
+            lp = Linkapy_Parser(
+                methylation_path = str(allcools_path),
+                transcriptome_path = str(tmp_path / 'nonexistent_rna_path'),
+                output = str(tmp_path / 'output'),
+                methylation_pattern = ('*WCGN*tsv.gz', '*GCHN*tsv.gz'),
+                methylation_pattern_names = ('WCGN', 'GCHN'),
+                transcriptome_pattern = ('*tsv',),
+                NOMe = False,
+                threads = 2,
+                chromsizes = None,
+                regions = (str(bed_path / 'gene1.bed'), str(bed_path / 'gene2.bed.gz')),
+                blacklist = (),
+                binsize = 20,
+                project = 'wrong_rna_path'
+            )
+    
+    def test_wrongchromsizepath(self, tmp_path, bed_path, allcools_path, rna_path):
+        '''
+        wrong chromsizes path.
+        '''
+        with pytest.raises(FileNotFoundError):
+            lp = Linkapy_Parser(
+                methylation_path = str(allcools_path),
+                transcriptome_path = str(rna_path),
+                output = str(tmp_path / 'output'),
+                methylation_pattern = ('*WCGN*tsv.gz', '*GCHN*tsv.gz'),
+                methylation_pattern_names = ('WCGN', 'GCHN'),
+                transcriptome_pattern = ('*tsv',),
+                NOMe = False,
+                threads = 2,
+                chromsizes = str(tmp_path / 'nonexistent_chromsizes'),
+                regions = (),
+                blacklist = (),
+                binsize = 20,
+                project = 'wrong_chromsizes_path'
+            )
+    
+    def test_wrongregionspath(self, tmp_path, bed_path, allcools_path, rna_path):
+        '''
+        wrong regions path.
+        '''
+        with pytest.raises(FileNotFoundError):
+            lp = Linkapy_Parser(
+                methylation_path = str(allcools_path),
+                transcriptome_path = str(rna_path),
+                output = str(tmp_path / 'output'),
+                methylation_pattern = ('*WCGN*tsv.gz', '*GCHN*tsv.gz'),
+                methylation_pattern_names = ('WCGN', 'GCHN'),
+                transcriptome_pattern = ('*tsv',),
+                NOMe = False,
+                threads = 2,
+                chromsizes = None,
+                regions = (str(tmp_path / 'nonexistent_regions'),),
+                blacklist = (),
+                binsize = 20,
+                project = 'wrong_regions_path'
+            )
+    
+    def test_wrongblacklistpath(self, tmp_path, bed_path, allcools_path, rna_path):
+        '''
+        wrong blacklist path.
+        '''
+        with pytest.raises(FileNotFoundError):
+            lp = Linkapy_Parser(
+                methylation_path = str(allcools_path),
+                transcriptome_path = str(rna_path),
+                output = str(tmp_path / 'output'),
+                methylation_pattern = ('*WCGN*tsv.gz', '*GCHN*tsv.gz'),
+                methylation_pattern_names = ('WCGN', 'GCHN'),
+                transcriptome_pattern = ('*tsv',),
+                NOMe = False,
+                threads = 2,
+                chromsizes = None,
+                regions = (str(bed_path / 'gene1.bed'), str(bed_path / 'gene2.bed.gz')),
+                blacklist = (str(tmp_path / 'nonexistent_blacklist'),),
+                binsize = 20,
+                project = 'wrong_blacklist_path'
+            )
+    
+    def test_nomethpattern(self, tmp_path, bed_path, allcools_path, rna_path):
+        '''
+        No methylation pattern provided in meth mode.
+        '''
+        with pytest.raises(ValueError):
+            lp = Linkapy_Parser(
+                methylation_path = str(allcools_path),
+                transcriptome_path = str(rna_path),
+                output = str(tmp_path / 'output'),
+                methylation_pattern = (),
+                methylation_pattern_names = ('WCGN', 'GCHN'),
+                transcriptome_pattern = ('*tsv',),
+                NOMe = False,
+                threads = 2,
+                chromsizes = None,
+                regions = (str(bed_path / 'gene1.bed'), str(bed_path / 'gene2.bed.gz')),
+                blacklist = (),
+                binsize = 20,
+                project = 'no_meth_pattern'
+            )
+    
+    def test_nornapattern(self, tmp_path, bed_path, allcools_path, rna_path):
+        '''
+        No transcriptome pattern provided in rna mode.
+        '''
+        with pytest.raises(ValueError):
+            lp = Linkapy_Parser(
+                methylation_path = str(allcools_path),
+                transcriptome_path = str(rna_path),
+                output = str(tmp_path / 'output'),
+                methylation_pattern = ('*WCGN*tsv.gz', '*GCHN*tsv.gz'),
+                methylation_pattern_names = ('WCGN', 'GCHN'),
+                transcriptome_pattern = (),
+                NOMe = False,
+                threads = 2,
+                chromsizes = None,
+                regions = (str(bed_path / 'gene1.bed'), str(bed_path / 'gene2.bed.gz')),
+                blacklist = (),
+                binsize = 20,
+                project = 'no_rna_pattern'
+            )
+    
+    def test_noasteriskspatterns(self, tmp_path, bed_path, allcools_path, rna_path):
+        '''
+        No * in patterns.
+        '''
+        with pytest.raises(AssertionError):
+            lp = Linkapy_Parser(
+                methylation_path = str(allcools_path),
+                transcriptome_path = str(rna_path),
+                output = str(tmp_path / 'output'),
+                methylation_pattern = ('WCGN_tsv.gz', 'GCHN_tsv.gz'),
+                methylation_pattern_names = ('WCGN', 'GCHN'),
+                transcriptome_pattern = ('tsv',),
+                NOMe = False,
+                threads = 2,
+                chromsizes = None,
+                regions = (str(bed_path / 'gene1.bed'), str(bed_path / 'gene2.bed.gz')),
+                blacklist = (),
+                binsize = 20,
+                project = 'no_asterisks_patterns'
+            )
