@@ -10,4 +10,4 @@ jobs:
         with:
           cache: true
       - name: run ty via pixi
-        run: pixi run ty check
+        run: pixi run ty
