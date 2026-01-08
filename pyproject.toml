@@ -50,6 +50,12 @@ linkapy = "linkapy.CLI:linkapy"
 Homepage = "https://github.com/WardDeb/linkapy"
 Repository = "https://github.com/WardDeb/linkapy"
 Documentation = "https://linkapy.readthedocs.io/en/stable/"
+
+[tool.coverage.report]
+exclude_also = [
+    "def example",
+    "as e:"
+]
 [tool.ruff]
 exclude = [
   "docs",
@@ -70,5 +76,5 @@ linkapy = { path = ".", editable = true, extras = ["dev", "docs", "build"] }
 [tool.pixi.tasks]
 ty = "ty check"
 ruff = "ruff check ."
-pytest = "pytest --cov=linkapy python/tests/"
+pytest = "pytest --cov=linkapy python/tests/ --cov-report term-missing" 
 test = "cargo test"

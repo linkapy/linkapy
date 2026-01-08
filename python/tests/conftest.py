@@ -316,3 +316,22 @@ def mu_to_dense(mu, var_name):
     dense = np.full(X.shape, np.nan, dtype=X.dtype)
     dense[X.row, X.col] = X.data
     return dense
+
+@pytest.fixture
+def nome_path(tmp_path):
+    '''
+    Create empty chromsizes, empty GCHN and WCGN files for testing.
+    '''
+
+    chromsizes = tmp_path / "chromsizes.txt"
+    chromsizes.touch()
+
+    gchn = tmp_path / "GCHN"
+    gchn.mkdir()
+    wcgn = tmp_path / "WCGN"
+    wcgn.mkdir()
+    for ix in range(1, 4):
+        (gchn / f"cell{ix}.GCHN.tsv.gz").touch()
+        (wcgn / f"cell{ix}.WCGN.tsv.gz").touch()
+
+    return tmp_path
