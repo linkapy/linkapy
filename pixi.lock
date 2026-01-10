@@ -1633,7 +1633,7 @@ packages:
 - pypi: ./
   name: linkapy
   version: 1.5.0
-  sha256: 7ad308aeced981e721557134856daa3c726dc7c7575b76e03bce697e1863ac91
+  sha256: 1e1ae894eb72fbcf2b26a29941d95fb657dc91b587710f1aedc88439a81f3e90
   requires_dist:
   - anndata>=0.11.1
   - click>=8.2.1
@@ -1649,7 +1649,6 @@ packages:
   - ty ; extra == 'dev'
   - pytest ; extra == 'dev'
   - pytest-cov ; extra == 'dev'
-  - coverage[toml] ; extra == 'dev'
   - sphinx ; extra == 'docs'
   - sphinx-rtd-theme ; extra == 'docs'
   - sphinx-autoapi ; extra == 'docs'
