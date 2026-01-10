@@ -32,13 +32,14 @@ dev = [
     "ruff",
     "ty",
     "pytest",
-    "pytest-cov"
+    "pytest-cov",
+    "coverage[toml]",
 ]
 docs = [
     "sphinx",
     "sphinx-rtd-theme",
     "sphinx-autoapi",
-    "sphinx-click"
+    "sphinx-click",
 ]
 build = [
     "build"
