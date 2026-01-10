@@ -53,6 +53,7 @@ Repository = "https://github.com/WardDeb/linkapy"
 Documentation = "https://linkapy.readthedocs.io/en/stable/"
 
 [tool.coverage.run]
+source = ["python/linkapy"]
 omit = [
     "python/linkapy/example.py",
 ]
@@ -82,5 +83,5 @@ linkapy = { path = ".", editable = true, extras = ["dev", "docs", "build"] }
 [tool.pixi.tasks]
 ty = "ty check"
 ruff = "ruff check ."
-pytest = "pytest --cov=linkapy python/tests/ --cov-report term-missing" 
+pytest = "pytest -v --cov=linkapy --cov-report=json"
 test = "cargo test"
