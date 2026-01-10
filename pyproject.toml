@@ -32,13 +32,13 @@ dev = [
     "ruff",
     "ty",
     "pytest",
-    "pytest-cov"
+    "pytest-cov",
 ]
 docs = [
     "sphinx",
     "sphinx-rtd-theme",
     "sphinx-autoapi",
-    "sphinx-click"
+    "sphinx-click",
 ]
 build = [
     "build"
@@ -81,5 +81,5 @@ linkapy = { path = ".", editable = true, extras = ["dev", "docs", "build"] }
 [tool.pixi.tasks]
 ty = "ty check"
 ruff = "ruff check ."
-pytest = "pytest --cov=linkapy python/tests/ --cov-report term-missing" 
+pytest = "pytest -vvv --cov=linkapy python/tests/ --cov-report=json"
 test = "cargo test"

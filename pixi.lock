@@ -1633,7 +1633,7 @@ packages:
 - pypi: ./
   name: linkapy
   version: 1.5.0
-  sha256: e591d6e6f45e1d650886c6e49b68e160d7ca066e37bfff82d56a0edbfcdcaebe
+  sha256: 1e1ae894eb72fbcf2b26a29941d95fb657dc91b587710f1aedc88439a81f3e90
   requires_dist:
   - anndata>=0.11.1
   - click>=8.2.1
