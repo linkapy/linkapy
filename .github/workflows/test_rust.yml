@@ -15,7 +15,7 @@ jobs:
         run: cargo llvm-cov --output-path test.linfo --no-cfg-coverage
       - name: get percentage
         run: |
-          percent=$(awk '/^TOTAL/ {print $(NF-6)}' test.linfo | sed 's/%//g')
+          percent=$(awk '/^TOTAL/ {print $(NF-9)}' test.linfo | sed 's/%//g')
           percent_int=$(printf "%.0f" "$percent")
           echo "PERCENTAGE=$percent_int"
           echo "PERCENTAGE=$percent_int" >> $GITHUB_ENV
