@@ -248,6 +248,11 @@ class Linkapy_Parser:
                 pattern: _ad for pattern, _ad in zip(_patterns, _adatas)
             }
         )
+        for _pattern, _ad in zip(_patterns, _adatas):
+            self.logger.info(f"MuData modality \'{_pattern}\'")
+            self.logger.info(f"with matrix {_ad[:2, :2].X}")
+            self.logger.info(f"with obs {_ad[:2, :2].obs}")
+            self.logger.info(f"with vars {_ad[:2, :2].var}")
 
         _of = (self.output / f"{self.project}.h5mu").as_posix()
         mudata.write(_of)
@@ -342,6 +347,11 @@ def match_cells(_l: List[List[str]], patterns: List[str], logger) -> tuple[List[
     a[0] = _l[0]
     # Start col_index at 1 since the first column is for the ref cells.
     col_index = 1
+    _lens = [len(cell_list) for cell_list in _l]
+    # Check if all lists have the same length.
+    if not all(length == _lens[0] for length in _lens):
+        logger.info(f"Different number of cells in different modalities: {_lens}. Will not attempt to match cells.")
+        return (None, None)
     for cell_list in _l[1:]:
         row_index = 0
         for refcell in _l[0]:
