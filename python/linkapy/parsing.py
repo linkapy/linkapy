@@ -324,7 +324,7 @@ def read_meth_to_anndata(prefix) -> ad.AnnData:
     X = sp.io.mmread(methp).tocsr()
     
     _obs = pl.read_csv(cellp, separator='\t', has_header=False).to_pandas()
-    obs_index = pd.Index([Path(i).name.split('.')[0] for i in _obs['column_1']], dtype="string")
+    obs_index = pd.Index([Path(i).name.split('.')[0] for i in _obs['column_1']], dtype="object")
     _obs = pd.DataFrame(index=obs_index)
     _var = pl.read_csv(regp, separator='\t', has_header=True).to_pandas()
     _var.index = _var.index.astype(str)
