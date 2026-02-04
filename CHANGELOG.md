@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.0](https://github.com/linkapy/linkapy/compare/v1.5.0...v1.6.0) (2026-02-04)
+
+
+### Features
+
+* more clear logs on decision making for matching cells ([6333e72](https://github.com/linkapy/linkapy/commit/6333e723429253227429e75be08c4fc468e5726a))
+* obs_index written as object dtypes instead of strings ([6333e72](https://github.com/linkapy/linkapy/commit/6333e723429253227429e75be08c4fc468e5726a))
+
 ## [1.5.0](https://github.com/FunctionalEpigeneticsLab/linkapy/compare/v1.4.0...v1.5.0) (2025-09-19)
 
 
