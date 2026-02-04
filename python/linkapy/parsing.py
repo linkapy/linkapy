@@ -232,13 +232,15 @@ class Linkapy_Parser:
         self.logger.info(f"{len(_adatas)} anndata objects in total.")
         if len(_cells) > 1:
             self.logger.info("Attempt to match cells across different anndata objects.")
-            renamed_obs, rename_df = match_cells(_cells, _patterns)
+            renamed_obs, rename_df = match_cells(_cells, _patterns, self.logger)
             if renamed_obs and rename_df is not None:
                 self.logger.info("Matching of cells across anndata objects successfull.")
                 rename_df.to_csv(self.output / 'cell_renaming.tsv', sep='\t', index=False)
                 self.logger.info(f"Dataframe used to rename cells written to {str(self.output / 'cell_renaming.tsv')}.")
                 for new_obs, _ad in zip(renamed_obs, _adatas):
                     _ad.obs.index = new_obs
+            else:
+                self.logger.warning("Matching of cells across anndata objects failed. Proceeding without matching.")
         self.logger.info("Saving MuData object.")
         md.set_options(pull_on_update=False)
         mudata = md.MuData(
@@ -246,6 +248,12 @@ class Linkapy_Parser:
                 pattern: _ad for pattern, _ad in zip(_patterns, _adatas)
             }
         )
+        for _pattern, _ad in zip(_patterns, _adatas):
+            self.logger.info(f"MuData modality \'{_pattern}\'")
+            self.logger.info(f"with matrix {_ad[:2, :2].X}")
+            self.logger.info(f"with obs {_ad[:2, :2].obs}")
+            self.logger.info(f"with vars {_ad[:2, :2].var}")
+
         _of = (self.output / f"{self.project}.h5mu").as_posix()
         mudata.write(_of)
         self.logger.info(f"MuData object written to {_of}")
@@ -258,8 +266,8 @@ def parse_rna(files, prefix) -> None:
     schema = {
         'Geneid': pl.String,
         'Chr': pl.String,
-        'Start': pl.UInt32,
-        'End': pl.UInt32,
+        'Start': pl.String,
+        'End': pl.String,
         'Strand': pl.String,
         'Length': pl.UInt32
     }
@@ -316,7 +324,7 @@ def read_meth_to_anndata(prefix) -> ad.AnnData:
     X = sp.io.mmread(methp).tocsr()
     
     _obs = pl.read_csv(cellp, separator='\t', has_header=False).to_pandas()
-    obs_index = pd.Index([Path(i).name.split('.')[0] for i in _obs['column_1']], dtype="string")
+    obs_index = pd.Index([Path(i).name.split('.')[0] for i in _obs['column_1']], dtype="object")
     _obs = pd.DataFrame(index=obs_index)
     _var = pl.read_csv(regp, separator='\t', has_header=True).to_pandas()
     _var.index = _var.index.astype(str)
@@ -329,29 +337,37 @@ def read_meth_to_anndata(prefix) -> ad.AnnData:
     assert isinstance(obs_df, pd.DataFrame)
     return annd[obs_df.sort_index().index, :].copy()
 
-def match_cells(_l: List[List[str]], patterns: List[str]) -> tuple[List[List[str]], pd.DataFrame]|tuple[None, None]:
+def match_cells(_l: List[List[str]], patterns: List[str], logger) -> tuple[List[List[str]], pd.DataFrame]|tuple[None, None]:
     '''
     Take a list of lists containing putative cell names. Per list, we need a 'best match'.
     This is needed since often an assay or context specific pre- or postfix is used, and we want to match them for the mudata object.
     '''
+
     a = pd.DataFrame(np.nan, index=range(len(_l[0])), columns=range(len(_l)), dtype="string")
     a[0] = _l[0]
     # Start col_index at 1 since the first column is for the ref cells.
     col_index = 1
+    _lens = [len(cell_list) for cell_list in _l]
+    # Check if all lists have the same length.
+    if not all(length == _lens[0] for length in _lens):
+        logger.info(f"Different number of cells in different modalities: {_lens}. Will not attempt to match cells.")
+        return (None, None)
     for cell_list in _l[1:]:
         row_index = 0
         for refcell in _l[0]:
             distances = [ls_dist(refcell, cell) for cell in cell_list]
             top_matches = [cell for cell, dist in zip(cell_list, distances) if dist == min(distances)]
             if len(top_matches) > 1 or not top_matches:
+                logger.info(f"Ambigious (or no) match for {refcell} with top_matches = {top_matches}.")
                 return (None, None)
             a.at[row_index, col_index] = top_matches[0]
             row_index += 1
         col_index += 1
-    
+    logger.info(f"after matching df: {a}")
     # If any cellname is duplicated inside a column, return None
     for col in a.columns:
         if a[col].duplicated().any():
+            logger.info(f"Duplicate cell names after matching: {a[col][a[col].duplicated(keep=False)].tolist()}")
             return (None, None)
     
     a['common_name'] = a.apply(lambda row: get_common_cellname(row.values), axis=1)
