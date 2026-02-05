@@ -20,7 +20,8 @@ pub fn read_meth(_f: &str) -> Vec<MethRegion> {
     // Decide the methylation file type, by getting the first non-comment line.
     let firstline = reader.lines()
         .filter_map(|l| l.ok())
-        .find(|line| !line.trim_start().starts_with('#'));
+        .find(|line| !line.trim_start()
+        .starts_with('#') && !line.trim_start().starts_with("track"));
     let methtype = decide_methtype(firstline);
 
     let reader: Box<dyn BufRead> = match is_gzipped(_f) {
@@ -37,6 +38,11 @@ pub fn read_meth(_f: &str) -> Vec<MethRegion> {
 
     for line in reader.lines() {
         let line = line.map_err(|e| format!("Error reading line: {}", e)).unwrap();
+        
+        // Skip track lines
+        if line.trim_start().starts_with("track") {
+            continue;
+        }
         
         match methtype.parse_line(&line).unwrap() {
             Some(region) => methregions.push(region),
