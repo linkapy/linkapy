@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.7.0](https://github.com/linkapy/linkapy/compare/v1.6.0...v1.7.0) (2026-02-06)
+
+
+### Features
+
+* skip 'track' headers ([43a17a6](https://github.com/linkapy/linkapy/commit/43a17a6d474d7c010d36f234abe2c36c01215f5d))
+
+
+### Bug Fixes
+
+* full gz file parsing ([#60](https://github.com/linkapy/linkapy/issues/60)) ([43a17a6](https://github.com/linkapy/linkapy/commit/43a17a6d474d7c010d36f234abe2c36c01215f5d))
+
 ## [1.6.0](https://github.com/linkapy/linkapy/compare/v1.5.0...v1.6.0) (2026-02-04)
 
 
