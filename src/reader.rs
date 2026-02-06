@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
-use flate2::read::GzDecoder;
+use flate2::read::MultiGzDecoder;
 use crate::types::{Region, MethFileType, MethRegion};
 
 pub fn read_meth(_f: &str) -> Vec<MethRegion> {
@@ -8,7 +8,7 @@ pub fn read_meth(_f: &str) -> Vec<MethRegion> {
     
     let reader: Box<dyn BufRead> = match is_gzipped(_f) {
         Ok(true) => {
-            Box::new(BufReader::new(GzDecoder::new(File::open(_f).unwrap())))
+            Box::new(BufReader::new(MultiGzDecoder::new(File::open(_f).unwrap())))
         },
         Ok(false) => {
             Box::new(BufReader::new(File::open(_f).unwrap()))
@@ -19,13 +19,14 @@ pub fn read_meth(_f: &str) -> Vec<MethRegion> {
     };
     // Decide the methylation file type, by getting the first non-comment line.
     let firstline = reader.lines()
-        .filter_map(|l| l.ok())
-        .find(|line| !line.trim_start().starts_with('#'));
+        .map_while(|l| l.ok())
+        .find(|line| !line.trim_start()
+        .starts_with('#') && !line.trim_start().starts_with("track"));
     let methtype = decide_methtype(firstline);
 
     let reader: Box<dyn BufRead> = match is_gzipped(_f) {
         Ok(true) => {
-            Box::new(BufReader::new(GzDecoder::new(File::open(_f).unwrap())))
+            Box::new(BufReader::new(MultiGzDecoder::new(File::open(_f).unwrap())))
         },
         Ok(false) => {
             Box::new(BufReader::new(File::open(_f).unwrap()))
@@ -37,6 +38,11 @@ pub fn read_meth(_f: &str) -> Vec<MethRegion> {
 
     for line in reader.lines() {
         let line = line.map_err(|e| format!("Error reading line: {}", e)).unwrap();
+        
+        // Skip track lines
+        if line.trim_start().starts_with("track") {
+            continue;
+        }
         
         match methtype.parse_line(&line).unwrap() {
             Some(region) => methregions.push(region),
@@ -97,7 +103,7 @@ pub fn parse_region(reg: String, class: String) -> Vec<Region> {
 
     let reader: Box<dyn BufRead> = match is_gzipped(&reg) {
         Ok(true) => {
-            Box::new(BufReader::new(GzDecoder::new(File::open(reg).unwrap())))
+            Box::new(BufReader::new(MultiGzDecoder::new(File::open(reg).unwrap())))
         },
         Ok(false) => {
             Box::new(BufReader::new(File::open(reg).unwrap()))

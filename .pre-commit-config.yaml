@@ -9,7 +9,7 @@ repos:
     hooks:
       - id: cargo-clippy
         name: Cargo Clippy
-        entry: cargo
+        entry: pixi run cargo
         args: ["clippy"]
         language: system
         types: [rust]

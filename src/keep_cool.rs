@@ -5,9 +5,10 @@ use std::io::{Write};
 use rayon::prelude::*;
 use rayon::ThreadPoolBuilder;
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use sprs::{CsMat, TriMat};
 use sprs::io::write_matrix_market;
-use crate::types::{Region, MethRegion};
+use crate::types::{Region};
 use crate::reader::{read_meth, parse_chromsizes, parse_region};
 
 #[allow(clippy::too_many_arguments)]
@@ -88,51 +89,97 @@ pub fn parse_cools(
         "info",
         (format!("\'keep_cool\': Starting pool with {} threads.", threads),)
     )?;
+    let blacklist_by_chrom: HashMap<String, Vec<(u32, u32)>> = match &blacklist_regions {
+        Some(blacklist) => {
+            let mut map: HashMap<String, Vec<(u32, u32)>> = HashMap::new();
+            for bl in blacklist.iter() {
+                let start = bl.start[0];
+                let end = *bl.end.last().unwrap();
+                map.entry(bl.chrom.clone()).or_default().push((start, end));
+            }
+            for intervals in map.values_mut() {
+                intervals.sort_by_key(|(s, _)| *s);
+            }
+            map
+        }
+        None => HashMap::new(),
+    };
     // Metrics
     let aggregated_metrics: Vec<Vec<((f32, f32, f32), f32)>>  = pool.install(|| {
         coolfiles
             .par_iter()
             .map(|methfile| {
-                let methregions = read_meth(methfile);
+                let mut methregions = read_meth(methfile);
+                
+                // Sort per chromosome and position (cannot really assume this at this point, though most times it'll be.)
+                methregions.sort_by(|a, b| {
+                    let chrom_order = a.chrom.cmp(&b.chrom);
+                    if chrom_order != Ordering::Equal {
+                        return chrom_order;
+                    }
+                    a.pos.cmp(&b.pos)
+                });
+
+                // Index regions by chromosome
+                let mut by_chrom: HashMap<String, (usize, usize)> = HashMap::new();
+                let mut start = 0;
+                for i in 1..=methregions.len() {
+                    if i == methregions.len() || methregions[i].chrom != methregions[start].chrom {
+                        by_chrom.insert(methregions[start].chrom.clone(), (start, i));
+                        start = i;
+                    }
+                }
+
                 parsed_regions
                     .par_iter()
                     .map(|region| {
-                        let filtered: Vec<&MethRegion> = methregions
-                            .iter()
-                            .filter(|x| {
-                                x.chrom == region.chrom 
-                                    && x.pos >= region.start[0] 
-                                    && x.pos < *region.end.last().unwrap()
-                                    && blacklist_regions.as_ref().is_none_or(|blacklist| {
-                                        !blacklist.iter().any(|bl| {
-                                            bl.chrom == x.chrom && x.pos >= bl.start[0] && x.pos < *bl.end.last().unwrap()
-                                        })
-                                    })
-                            })
-                            .collect();
+                        let (meth_sum, total_sum, sites, frac_sum, frac_count) = if let Some((s, e)) = by_chrom.get(&region.chrom) {
+                            let chrom_regions = &methregions[*s..*e];
+                            let start_idx = chrom_regions.partition_point(|x| x.pos < region.start[0]);
+                            let end_idx = chrom_regions.partition_point(|x| x.pos < *region.end.last().unwrap());
+                            let mut meth_sum = f32::NAN;
+                            let mut total_sum = f32::NAN;
+                            let mut sites = f32::NAN;
+                            let mut frac_sum = 0.0f32;
+                            let mut frac_count = 0.0f32;
 
-                        let fractions: Vec<f32> = filtered
-                            .iter()
-                            .map(|x| x.meth as f32 / x.total as f32 ) // total will never be zero.
-                            .collect();
-
-                        let (meth_sum, total_sum, sites) = filtered
-                            .iter()
-                            .fold((f32::NAN, f32::NAN, f32::NAN), |(meth_acc, total_acc, sites), x| {
-                                (
-                                    if meth_acc.is_nan() { x.meth as f32 } else { meth_acc + x.meth as f32 },
-                                    if total_acc.is_nan() { x.total as f32 } else { total_acc + x.total as f32 },
-                                    if sites.is_nan() { 1.0 } else { sites + 1.0 },
-                                )
-                            });
-                        
-                        let mean_fraction = {
-                            let valid: Vec<f32> = fractions.into_iter().filter(|v| !v.is_nan()).collect();
-                            if !valid.is_empty() {
-                                valid.iter().sum::<f32>() / valid.len() as f32
-                            } else {
-                                f32::NAN
+                            let blacklist_intervals = blacklist_by_chrom.get(&region.chrom);
+                            for x in &chrom_regions[start_idx..end_idx] {
+                                let is_blacklisted = if let Some(intervals) = blacklist_intervals {
+                                    let pos = x.pos;
+                                    let idx = intervals.partition_point(|(s, _)| *s <= pos);
+                                    if idx == 0 {
+                                        false
+                                    } else {
+                                        let (s, e) = intervals[idx - 1];
+                                        pos >= s && pos < e
+                                    }
+                                } else {
+                                    false
+                                };
+                                if is_blacklisted {
+                                    continue;
+                                }
+                                let meth = x.meth as f32;
+                                let total = x.total as f32;
+                                let frac = meth / total; // total will never be zero.
+                                meth_sum = if meth_sum.is_nan() { meth } else { meth_sum + meth };
+                                total_sum = if total_sum.is_nan() { total } else { total_sum + total };
+                                sites = if sites.is_nan() { 1.0 } else { sites + 1.0 };
+                                if !frac.is_nan() {
+                                    frac_sum += frac;
+                                    frac_count += 1.0;
+                                }
                             }
+                            (meth_sum, total_sum, sites, frac_sum, frac_count)
+                        } else {
+                            (f32::NAN, f32::NAN, f32::NAN, 0.0, 0.0)
+                        };
+
+                        let mean_fraction = if frac_count > 0.0 {
+                            frac_sum / frac_count
+                        } else {
+                            f32::NAN
                         };
 
                         ((meth_sum, total_sum, sites), mean_fraction)
