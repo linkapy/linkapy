@@ -25,7 +25,7 @@ jobs:
           echo "PERCENTAGE=$percent" >> $GITHUB_ENV
       - name: Create_badge
         if: github.ref == 'refs/heads/main'
-        uses: schneegans/dynamic-badges-action@v1.7.0
+        uses: schneegans/dynamic-badges-action@v1.8.0
         with:
           auth: ${{ secrets.GIST }}
           gistID: d0010eb142b962632f94c164c502b506
