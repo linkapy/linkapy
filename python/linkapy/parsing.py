@@ -242,7 +242,10 @@ class Linkapy_Parser:
             else:
                 self.logger.warning("Matching of cells across anndata objects failed. Proceeding without matching.")
         self.logger.info("Saving MuData object.")
-        md.set_options(pull_on_update=False)
+
+        for pattern, _ad in zip(_patterns, _adatas):
+            _ad.var.index = [f"{pattern}:{v}" for v in _ad.var.index]
+
         mudata = md.MuData(
             {
                 pattern: _ad for pattern, _ad in zip(_patterns, _adatas)
