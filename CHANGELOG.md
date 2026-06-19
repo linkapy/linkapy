@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/linkapy/linkapy/compare/v1.7.0...v1.8.0) (2026-06-19)
+
+
+### Features
+
+* unique var names to accomodate pull_on_update behavior in mudata ([#67](https://github.com/linkapy/linkapy/issues/67)) ([d93f4aa](https://github.com/linkapy/linkapy/commit/d93f4aaba9b38d118f1cbad36bc047d537ac9823))
+
 ## [1.7.0](https://github.com/linkapy/linkapy/compare/v1.6.0...v1.7.0) (2026-02-06)
 
 
