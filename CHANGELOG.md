@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.9.0](https://github.com/linkapy/linkapy/compare/v1.8.0...v1.9.0) (2026-08-15)
+
+
+### Features
+
+* exact split for methtypes ([0a0433f](https://github.com/linkapy/linkapy/commit/0a0433f78e8525acfb37b747bc627907e3fa3c1e))
+* single gz pass for methtype ([0a0433f](https://github.com/linkapy/linkapy/commit/0a0433f78e8525acfb37b747bc627907e3fa3c1e))
+
+
+### Bug Fixes
+
+* drop global lock in latest pyo3 ([0a0433f](https://github.com/linkapy/linkapy/commit/0a0433f78e8525acfb37b747bc627907e3fa3c1e))
+
 ## [1.8.0](https://github.com/linkapy/linkapy/compare/v1.7.0...v1.8.0) (2026-06-19)
 
 
