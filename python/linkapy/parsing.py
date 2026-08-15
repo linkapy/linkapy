@@ -14,6 +14,11 @@ from rich.console import Console
 from linkapy.linkapy import parse_cools
 from linkapy.logger import setup_logger
 
+# Adopt mudata's upcoming default: .update() no longer pulls obs/var
+# columns from modalities automatically. See mudata FutureWarning on
+# MuData.update() for details.
+md.set_options(pull_on_update=False)
+
 
 class Linkapy_Parser:
     '''
@@ -296,7 +301,7 @@ def parse_rna(files, prefix) -> None:
     if len(metadfs) > 1:
         assert all(metadfs[0].equals(df) for df in metadfs[1:])
     # concatenate the countdfs (horizontal)
-    countdf = pl.concat(countdfs, how='horizontal')
+    countdf = pl.concat(countdfs, how='horizontal_extend')
     countdf.write_ipc(prefix.with_name(prefix.name + "_counts.arrow"), compression='zstd')
     metadfs[0].write_ipc(prefix.with_name(prefix.name + "_meta.arrow"), compression='zstd')
 
@@ -326,7 +331,7 @@ def read_meth_to_anndata(prefix) -> ad.AnnData:
     methp = prefix.with_name(prefix.name + ".frac.mtx")
     cellp = prefix.with_name(prefix.name + ".cells.tsv")
     regp = prefix.with_name(prefix.name + ".regions.tsv")
-    X = sp.io.mmread(methp).tocsr()
+    X = sp.io.mmread(methp, spmatrix=False).tocsr()
     
     _obs = pl.read_csv(cellp, separator='\t', has_header=False).to_pandas()
     obs_index = pd.Index([Path(i).name.split('.')[0] for i in _obs['column_1']], dtype="object")

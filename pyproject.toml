@@ -79,9 +79,11 @@ exclude = [
 channels = ["conda-forge", "bioconda"]
 platforms = ["linux-64", "osx-arm64", "osx-64", "win-64"]
 [tool.pixi.pypi-dependencies]
-linkapy = { path = ".", editable = true, extras = ["dev", "docs", "build"] } 
+linkapy = { path = ".", editable = true, extras = ["dev", "docs", "build"] }
+mudata = ">=0.3.9"
 [tool.pixi.tasks]
 ty = "ty check"
 ruff = "ruff check ."
 pytest = "pytest -vvv --cov=linkapy python/tests/ --cov-report=json"
 test = "cargo test"
+testall = "ty check; ruff check .;pytest -vvv --cov=linkapy python/tests/;cargo test"
