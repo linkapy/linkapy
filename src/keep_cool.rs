@@ -33,12 +33,10 @@ pub fn parse_cools(
     let mut regionlabels: Vec<String> = Vec::new();
     let mut blacklist: Vec<String> = Vec::new();
 
-    Python::with_gil(|py| {
-        coolfiles = _coolfiles.extract(py).expect("Failed to retrieve allcoolfiles.");
-        regions = _regions.extract(py).expect("Failed to retrieve regions.");
-        regionlabels = _regionlabels.extract(py).expect("Failed to retrieve region labels.");
-        blacklist = _blacklist.extract(py).expect("Failed to retrieve blacklist regions.");
-    });
+    coolfiles = _coolfiles.extract(py).expect("Failed to retrieve allcoolfiles.");
+    regions = _regions.extract(py).expect("Failed to retrieve regions.");
+    regionlabels = _regionlabels.extract(py).expect("Failed to retrieve region labels.");
+    blacklist = _blacklist.extract(py).expect("Failed to retrieve blacklist regions.");
     // regions and regionlabels should always be same length.
     assert_eq!(regions.len(), regionlabels.len());
 
@@ -190,7 +188,7 @@ pub fn parse_cools(
     });
     
     let regvals: Vec<Vec<(f32, f32, f32)>> = aggregated_metrics.iter().map(|v| v.iter().map(|(vals, _)| *vals).collect()).collect();
-    let fractions_vec: Vec<Vec<f32>> = aggregated_metrics.iter().map(|v| v.iter().map(|(_, fracs)| fracs.clone()).collect()).collect();
+    let fractions_vec: Vec<Vec<f32>> = aggregated_metrics.iter().map(|v| v.iter().map(|(_, fracs)| *fracs).collect()).collect();
     let fracm = frac_to_sparse(fractions_vec);
     let (methm, covm, sitem) = tupvec_to_sparse(regvals);
     logger.call_method1(
