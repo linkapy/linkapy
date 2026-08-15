@@ -1,8 +1,11 @@
 import hashlib
 from pathlib import Path
-from linkapy.logger import setup_logger
-from rich.console import Console
+
 import requests
+from rich.console import Console
+
+from linkapy.logger import setup_logger
+
 
 class Linkapy_Example:
     '''

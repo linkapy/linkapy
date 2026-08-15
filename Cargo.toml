@@ -1,14 +1,14 @@
 [package]
 name = "linkapy"
 version = "1.8.0"
-edition = "2021"
+edition = "2024"
 
 [lib]
 name = "linkapy"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.24", features = ["extension-module"] }
+pyo3 = { version = "*", features = ["extension-module"] }
 rayon = "*"
 flate2 = "*"
 sprs = "*"
