@@ -66,6 +66,8 @@ exclude = [
   "docs",
   "tests"
 ]
+[tool.ruff.lint]
+ignore = ["N999"]
 [tool.ty.rules]
 unresolved-import = "ignore" # pyo3 / rust code fails to import in checks. Ignore.
 [tool.ty.src]

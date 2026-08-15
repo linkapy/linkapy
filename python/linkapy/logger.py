@@ -1,6 +1,8 @@
 import logging
-from rich.logging import RichHandler
 from pathlib import Path
+
+from rich.logging import RichHandler
+
 
 def setup_logger(logfile: Path, verbose: bool = False) -> logging.Logger:
     _logger = logging.getLogger()

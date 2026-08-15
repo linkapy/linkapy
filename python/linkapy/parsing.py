@@ -1,17 +1,19 @@
-from pathlib import Path
 import signal
-from rich.console import Console
+from difflib import SequenceMatcher
+from pathlib import Path
+
 import anndata as ad
 import mudata as md
 import numpy as np
-import scipy as sp
-import polars as pl
 import pandas as pd
+import polars as pl
+import scipy as sp
 from Levenshtein import distance as ls_dist
-from difflib import SequenceMatcher
-from typing import List
+from rich.console import Console
+
 from linkapy.linkapy import parse_cools
 from linkapy.logger import setup_logger
+
 
 class Linkapy_Parser:
     '''
@@ -236,7 +238,7 @@ class Linkapy_Parser:
             if renamed_obs and rename_df is not None:
                 self.logger.info("Matching of cells across anndata objects successfull.")
                 rename_df.to_csv(self.output / 'cell_renaming.tsv', sep='\t', index=False)
-                self.logger.info(f"Dataframe used to rename cells written to {str(self.output / 'cell_renaming.tsv')}.")
+                self.logger.info(f"Dataframe used to rename cells written to {self.output / 'cell_renaming.tsv'!s}.")
                 for new_obs, _ad in zip(renamed_obs, _adatas):
                     _ad.obs.index = new_obs
             else:
@@ -340,7 +342,7 @@ def read_meth_to_anndata(prefix) -> ad.AnnData:
     assert isinstance(obs_df, pd.DataFrame)
     return annd[obs_df.sort_index().index, :].copy()
 
-def match_cells(_l: List[List[str]], patterns: List[str], logger) -> tuple[List[List[str]], pd.DataFrame]|tuple[None, None]:
+def match_cells(_l: list[list[str]], patterns: list[str], logger) -> tuple[list[list[str]], pd.DataFrame]|tuple[None, None]:
     '''
     Take a list of lists containing putative cell names. Per list, we need a 'best match'.
     This is needed since often an assay or context specific pre- or postfix is used, and we want to match them for the mudata object.
@@ -356,15 +358,13 @@ def match_cells(_l: List[List[str]], patterns: List[str], logger) -> tuple[List[
         logger.info(f"Different number of cells in different modalities: {_lens}. Will not attempt to match cells.")
         return (None, None)
     for cell_list in _l[1:]:
-        row_index = 0
-        for refcell in _l[0]:
+        for row_index, refcell in enumerate(_l[0]):
             distances = [ls_dist(refcell, cell) for cell in cell_list]
             top_matches = [cell for cell, dist in zip(cell_list, distances) if dist == min(distances)]
             if len(top_matches) > 1 or not top_matches:
                 logger.info(f"Ambigious (or no) match for {refcell} with top_matches = {top_matches}.")
                 return (None, None)
             a.at[row_index, col_index] = top_matches[0]
-            row_index += 1
         col_index += 1
     logger.info(f"after matching df: {a}")
     # If any cellname is duplicated inside a column, return None
@@ -388,7 +388,7 @@ def match_cells(_l: List[List[str]], patterns: List[str], logger) -> tuple[List[
     return (renl, a)
 
 
-def get_common_cellname(cellnames: List[str]) -> str | float:
+def get_common_cellname(cellnames: list[str]) -> str | float:
     ref = cellnames[0]
     for name in cellnames[1:]:
         sm = SequenceMatcher(None, ref, name)

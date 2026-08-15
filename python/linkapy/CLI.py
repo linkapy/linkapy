@@ -1,6 +1,8 @@
 from importlib import metadata
+
 import click
 from rich import print
+
 
 @click.group(invoke_without_command=True)
 @click.help_option("-h", "--help")
@@ -9,7 +11,6 @@ def linkapy() -> None:
     '''
     Linkapy CLI - A command line interface to process and analyze single-cell multiome data.
     '''
-    pass
 
 @linkapy.command(context_settings={"show_default": True})
 @click.help_option("-h", "--help")
@@ -76,11 +77,11 @@ def parsing(ctx, **kwargs) -> None:
         )
         lp.parse()
     except ValueError as e:
-        raise click.ClickException(f"ERROR: {str(e)}")
+        raise click.ClickException(f"ERROR: {e!s}")
     except FileNotFoundError as e:
-        raise click.ClickException(f"ERROR: {str(e)}. Please check the provided paths.")
+        raise click.ClickException(f"ERROR: {e!s}. Please check the provided paths.")
     except AssertionError as e:
-        raise click.ClickException(f"ERROR: {str(e)}. Please check the provided parameters")
+        raise click.ClickException(f"ERROR: {e!s}. Please check the provided parameters")
 
 @linkapy.command(context_settings={"show_default": True})
 @click.help_option("-h", "--help")
