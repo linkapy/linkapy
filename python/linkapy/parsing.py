@@ -12,7 +12,7 @@ from Levenshtein import distance as ls_dist
 from rich.console import Console
 
 from linkapy.linkapy import parse_cools
-from linkapy.logger import setup_logger
+from linkapy.logger import log_versions, setup_logger
 
 # Adopt mudata's upcoming default: .update() no longer pulls obs/var
 # columns from modalities automatically. See mudata FutureWarning on
@@ -71,6 +71,7 @@ class Linkapy_Parser:
         console = Console()
         console.rule("[bold green]Linkapy Parser[/bold green]")
         self.logger.info(f"Logging under {self.logfile}")
+        log_versions(self.logger)
 
         # Check parameters
         if not any((methylation_path, transcriptome_path)):
