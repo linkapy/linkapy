@@ -70,7 +70,7 @@ pub fn parse_cools(
             parsed_regions.extend(parse_region(_r, _l));
         }
         // Sort per chromosome and start position.
-        parsed_regions.sort_by(|a, b| {
+        parsed_regions.sort_unstable_by(|a, b| {
             // First, compare by `chrom`
             let chrom_order = a.chrom.cmp(&b.chrom);
             if chrom_order != Ordering::Equal {
@@ -123,7 +123,7 @@ pub fn parse_cools(
                     let mut methregions = read_meth(methfile);
 
                     // Sort per chromosome and position (cannot really assume this at this point, though most times it'll be.)
-                    methregions.sort_by(|a, b| {
+                    methregions.sort_unstable_by(|a, b| {
                         let chrom_order = a.chrom.cmp(&b.chrom);
                         if chrom_order != Ordering::Equal {
                             return chrom_order;
