@@ -23,14 +23,14 @@ mod tests {
         );
         // bed file.
         assert_eq!(bedregions.len(), 1);
-        assert_eq!(bedregions[0].chrom, "chr1");
+        assert_eq!(bedregions[0].chrom.as_ref(), "chr1");
         assert_eq!(bedregions[0].start, 100);
         assert_eq!(bedregions[0].end, 200);
         assert_eq!(bedregions[0].name, "chr1:100-200");
         assert_eq!(bedregions[0].class, "bed");
         // bed gz file.
         assert_eq!(bedgzregions.len(), 1);
-        assert_eq!(bedgzregions[0].chrom, "chr1");
+        assert_eq!(bedgzregions[0].chrom.as_ref(), "chr1");
         assert_eq!(bedgzregions[0].start, 100);
         assert_eq!(bedgzregions[0].end, 200);
         assert_eq!(bedgzregions[0].name, "chr1:100-200");
@@ -82,13 +82,13 @@ mod tests {
         let bedmethyl = test_path.parent().unwrap().join("data/methf_bedmethyl");
         let exp_mr = vec![
             MethRegion {
-                chrom: "chr1".to_string(),
+                chrom: "chr1".into(),
                 pos: 0,
                 meth: 1,
                 total: 1,
             },
             MethRegion {
-                chrom: "chr1".to_string(),
+                chrom: "chr1".into(),
                 pos: 2,
                 meth: 0,
                 total: 1,
@@ -114,7 +114,7 @@ mod tests {
 
         let regions = parse_chromsizes(&chromsizef.to_string_lossy(), 1000);
         assert_eq!(regions.len(), 2);
-        assert_eq!(regions[1].chrom, "chr1");
+        assert_eq!(regions[1].chrom.as_ref(), "chr1");
         assert_eq!(regions[1].start, 1000);
         assert_eq!(regions[1].end, 2000);
         assert_eq!(regions[1].name, "chr1:1000-2000");
@@ -174,13 +174,13 @@ mod tests {
             methregions,
             vec![
                 MethRegion {
-                    chrom: "chr1".to_string(),
+                    chrom: "chr1".into(),
                     pos: 0,
                     meth: 1,
                     total: 1
                 },
                 MethRegion {
-                    chrom: "chr1".to_string(),
+                    chrom: "chr1".into(),
                     pos: 2,
                     meth: 0,
                     total: 1

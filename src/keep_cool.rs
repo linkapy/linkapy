@@ -10,6 +10,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
+use std::sync::Arc;
 
 #[allow(clippy::too_many_arguments)]
 #[pyfunction]
@@ -99,9 +100,9 @@ pub fn parse_cools(
             threads
         ),),
     )?;
-    let blacklist_by_chrom: HashMap<String, Vec<(u32, u32)>> = match &blacklist_regions {
+    let blacklist_by_chrom: HashMap<Arc<str>, Vec<(u32, u32)>> = match &blacklist_regions {
         Some(blacklist) => {
-            let mut map: HashMap<String, Vec<(u32, u32)>> = HashMap::new();
+            let mut map: HashMap<Arc<str>, Vec<(u32, u32)>> = HashMap::new();
             for bl in blacklist.iter() {
                 let start = bl.start;
                 let end = bl.end;
@@ -132,7 +133,7 @@ pub fn parse_cools(
                     });
 
                     // Index regions by chromosome
-                    let mut by_chrom: HashMap<String, (usize, usize)> = HashMap::new();
+                    let mut by_chrom: HashMap<Arc<str>, (usize, usize)> = HashMap::new();
                     let mut start = 0;
                     for i in 1..=methregions.len() {
                         if i == methregions.len()

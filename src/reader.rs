@@ -1,7 +1,9 @@
 use crate::types::{MethFileType, MethRegion, Region};
 use flate2::read::MultiGzDecoder;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
+use std::sync::Arc;
 
 fn open_meth_reader(_f: &str) -> Box<dyn BufRead> {
     match is_gzipped(_f) {
@@ -11,8 +13,17 @@ fn open_meth_reader(_f: &str) -> Box<dyn BufRead> {
     }
 }
 
+fn intern_chrom(region: &mut MethRegion, cache: &mut HashSet<Arc<str>>) {
+    if let Some(existing) = cache.get(region.chrom.as_ref()) {
+        region.chrom = existing.clone();
+    } else {
+        cache.insert(region.chrom.clone());
+    }
+}
+
 pub fn read_meth(_f: &str) -> Vec<MethRegion> {
     let mut methregions: Vec<MethRegion> = Vec::with_capacity(1 << 16);
+    let mut chrom_cache: HashSet<Arc<str>> = HashSet::new();
 
     let mut lines = open_meth_reader(_f).lines().map_while(|l| l.ok());
     // Decide methtype
@@ -23,7 +34,8 @@ pub fn read_meth(_f: &str) -> Vec<MethRegion> {
             continue;
         }
         let mt = decide_methtype(Some(line.clone()));
-        if let Some(region) = mt.parse_line(&line).unwrap() {
+        if let Some(mut region) = mt.parse_line(&line).unwrap() {
+            intern_chrom(&mut region, &mut chrom_cache);
             methregions.push(region);
         }
         methtype = Some(mt);
@@ -38,7 +50,10 @@ pub fn read_meth(_f: &str) -> Vec<MethRegion> {
         }
 
         match methtype.parse_line(&line).unwrap() {
-            Some(region) => methregions.push(region),
+            Some(mut region) => {
+                intern_chrom(&mut region, &mut chrom_cache);
+                methregions.push(region);
+            }
             None => { /* e.g., skip empty or invalid CpGReport lines */ }
         }
     }
@@ -52,7 +67,7 @@ pub fn parse_chromsizes(file: &str, binsize: u32) -> Vec<Region> {
         match line {
             Ok(line) => {
                 let fields: Vec<&str> = line.split('\t').collect();
-                let chrom = fields[0].to_string();
+                let chrom: Arc<str> = fields[0].into();
                 let chromsize = fields[1].parse::<u32>().unwrap();
                 let mut start = 0;
                 let mut end = start + binsize;
@@ -105,7 +120,7 @@ pub fn parse_region(reg: String, class: String) -> Vec<Region> {
         match line {
             Ok(line) => {
                 let fields: Vec<&str> = line.split('\t').collect();
-                let chrom = fields[0].to_string();
+                let chrom: Arc<str> = fields[0].into();
                 let start = fields[1].to_string();
                 let end = fields[2].to_string();
                 let name: String = if fields.len() > 3 {
