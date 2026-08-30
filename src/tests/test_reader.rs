@@ -1,8 +1,7 @@
-use crate::reader::{parse_region, is_gzipped, decide_methtype, read_meth, parse_chromsizes};
+use crate::reader::{decide_methtype, is_gzipped, parse_chromsizes, parse_region, read_meth};
 use crate::types::{MethFileType, MethRegion};
-use std::path::Path;
 use std::io::BufRead;
-
+use std::path::Path;
 
 #[cfg(test)]
 mod tests {
@@ -15,10 +14,13 @@ mod tests {
         let test_path = Path::new(file!());
         let bedfile = test_path.parent().unwrap().join("data/region.bed");
         let bedgzfile = test_path.parent().unwrap().join("data/region.bed.gz");
-        
+
         // Parse bed file
         let bedregions = parse_region(bedfile.to_string_lossy().into_owned(), "bed".to_string());
-        let bedgzregions = parse_region(bedgzfile.to_string_lossy().into_owned(), "bedgz".to_string());
+        let bedgzregions = parse_region(
+            bedgzfile.to_string_lossy().into_owned(),
+            "bedgz".to_string(),
+        );
         // bed file.
         assert_eq!(bedregions.len(), 1);
         assert_eq!(bedregions[0].chrom, "chr1");
@@ -61,7 +63,8 @@ mod tests {
         ];
         for (f, expected) in pairs {
             let reader = std::io::BufReader::new(std::fs::File::open(f).unwrap());
-            let firstline = reader.lines()
+            let firstline = reader
+                .lines()
                 .filter_map(|l| l.ok())
                 .find(|line| !line.trim_start().starts_with('#'));
             let methtype = decide_methtype(firstline);
@@ -78,8 +81,18 @@ mod tests {
         let methyldackel = test_path.parent().unwrap().join("data/methf_methyldackel");
         let bedmethyl = test_path.parent().unwrap().join("data/methf_bedmethyl");
         let exp_mr = vec![
-            MethRegion { chrom: "chr1".to_string(), pos: 0, meth: 1, total: 1 },
-            MethRegion { chrom: "chr1".to_string(), pos: 2, meth: 0, total: 1 },
+            MethRegion {
+                chrom: "chr1".to_string(),
+                pos: 0,
+                meth: 1,
+                total: 1,
+            },
+            MethRegion {
+                chrom: "chr1".to_string(),
+                pos: 2,
+                meth: 0,
+                total: 1,
+            },
         ];
 
         for f in vec![
@@ -106,5 +119,123 @@ mod tests {
         assert_eq!(regions[1].end, vec![2000]);
         assert_eq!(regions[1].name, "chr1:1000-2000");
         assert_eq!(regions[1].class, "bin");
+    }
+
+    #[test]
+    #[should_panic(expected = "empty or only contains comments")]
+    fn test_decide_methtype_none_panics() {
+        decide_methtype(None);
+    }
+
+    #[test]
+    #[should_panic(expected = "Could not decide between MethylDackel")]
+    fn test_decide_methtype_ambiguous_six_columns_panics() {
+        // meth=1, prop_cov=1 => MethylDackel-style percent would be 100, BismarkCov-style 50.
+        // 10.0 matches neither, so the filetype can't be decided.
+        decide_methtype(Some("chr1\t1\t2\t10.0\t1\t1".to_string()));
+    }
+
+    #[test]
+    #[should_panic(expected = "Could not decide methylation filetype, as it has 5 columns")]
+    fn test_decide_methtype_unsupported_column_count_panics() {
+        decide_methtype(Some("chr1\t1\t2\t3\t4".to_string()));
+    }
+
+    #[test]
+    #[should_panic(expected = "Could not parse BedMethyl coverage and modification counts")]
+    fn test_decide_methtype_bedmethyl_unparseable_counts_panics() {
+        let line = "chr1\t0\t1\tm\t1\t+\t0\t1\t255,0,0\tNA\t100.00\tNA\t0\t0\t0\t0\t0\t0";
+        decide_methtype(Some(line.to_string()));
+    }
+
+    #[test]
+    fn test_read_meth_gzipped() {
+        let test_path = Path::new(file!());
+        let plain = test_path.parent().unwrap().join("data/methf_methyldackel");
+        let gzipped = test_path
+            .parent()
+            .unwrap()
+            .join("data/methf_methyldackel.gz");
+        assert_eq!(
+            read_meth(&plain.to_string_lossy()),
+            read_meth(&gzipped.to_string_lossy())
+        );
+    }
+
+    #[test]
+    fn test_read_meth_skips_track_and_comment_lines() {
+        let test_path = Path::new(file!());
+        let f = test_path
+            .parent()
+            .unwrap()
+            .join("data/methf_methyldackel_trackskip");
+        let methregions = read_meth(&f.to_string_lossy());
+        assert_eq!(
+            methregions,
+            vec![
+                MethRegion {
+                    chrom: "chr1".to_string(),
+                    pos: 0,
+                    meth: 1,
+                    total: 1
+                },
+                MethRegion {
+                    chrom: "chr1".to_string(),
+                    pos: 2,
+                    meth: 0,
+                    total: 1
+                },
+            ]
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Error reading file")]
+    fn test_read_meth_missing_file_panics() {
+        read_meth("data/does_not_exist.tsv");
+    }
+
+    #[test]
+    #[should_panic(expected = "Error reading file")]
+    fn test_parse_region_missing_file_panics() {
+        parse_region("data/does_not_exist.bed".to_string(), "bed".to_string());
+    }
+
+    #[test]
+    fn test_parse_region_with_name_field() {
+        let test_path = Path::new(file!());
+        let f = test_path.parent().unwrap().join("data/region_named.bed");
+        let regions = parse_region(f.to_string_lossy().into_owned(), "bed".to_string());
+        assert_eq!(regions.len(), 1);
+        assert_eq!(regions[0].name, "regionA");
+    }
+
+    #[test]
+    fn test_parse_region_multi_interval() {
+        let test_path = Path::new(file!());
+        let f = test_path.parent().unwrap().join("data/region_multi_ok.bed");
+        let regions = parse_region(f.to_string_lossy().into_owned(), "bed".to_string());
+        assert_eq!(regions.len(), 1);
+        assert_eq!(regions[0].start, vec![100, 300, 500]);
+        assert_eq!(regions[0].end, vec![200, 350, 600]);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error reading file")]
+    fn test_parse_chromsizes_invalid_utf8_panics() {
+        let test_path = Path::new(file!());
+        let f = test_path
+            .parent()
+            .unwrap()
+            .join("data/chromsizes_badutf8.txt");
+        parse_chromsizes(&f.to_string_lossy(), 1000);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error reading file")]
+    fn test_parse_region_invalid_utf8_panics() {
+        let test_path = Path::new(file!());
+        let f = test_path.parent().unwrap().join("data/region_badutf8.bed");
+        parse_region(f.to_string_lossy().into_owned(), "bed".to_string());
     }
 }

@@ -1,0 +1,5 @@
+track name="test"
+chr1	0	1	100	1	1
+track name="ignored"
+#a mid file comment
+chr1	2	3	0	0	1
