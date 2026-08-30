@@ -1,7 +1,7 @@
 pub struct Region {
     pub chrom: String,
-    pub start: Vec<u32>,
-    pub end: Vec<u32>,
+    pub start: u32,
+    pub end: u32,
     pub name: String,
     pub class: String,
 }

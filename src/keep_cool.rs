@@ -68,7 +68,7 @@ pub fn parse_cools(
                 if chrom_order != Ordering::Equal {
                     return chrom_order;
                 }
-                a.start[0].cmp(&b.start[0])
+                a.start.cmp(&b.start)
             });
             parsed_regions
         };
@@ -86,8 +86,8 @@ pub fn parse_cools(
         Some(blacklist) => {
             let mut map: HashMap<String, Vec<(u32, u32)>> = HashMap::new();
             for bl in blacklist.iter() {
-                let start = bl.start[0];
-                let end = *bl.end.last().unwrap();
+                let start = bl.start;
+                let end = bl.end;
                 map.entry(bl.chrom.clone()).or_default().push((start, end));
             }
             for intervals in map.values_mut() {
@@ -128,8 +128,8 @@ pub fn parse_cools(
                     .map(|region| {
                         let (meth_sum, total_sum, sites, frac_sum, frac_count) = if let Some((s, e)) = by_chrom.get(&region.chrom) {
                             let chrom_regions = &methregions[*s..*e];
-                            let start_idx = chrom_regions.partition_point(|x| x.pos < region.start[0]);
-                            let end_idx = chrom_regions.partition_point(|x| x.pos < *region.end.last().unwrap());
+                            let start_idx = chrom_regions.partition_point(|x| x.pos < region.start);
+                            let end_idx = chrom_regions.partition_point(|x| x.pos < region.end);
                             let mut meth_sum = f32::NAN;
                             let mut total_sum = f32::NAN;
                             let mut sites = f32::NAN;
@@ -211,7 +211,7 @@ pub fn parse_cools(
     let mut ofile = File::create(oregionfile).unwrap();
     writeln!(ofile, "chrom\tstart\tend\tname\tclass").unwrap();
     for region in parsed_regions {
-        writeln!(ofile, "{}\t{}\t{}\t{}\t{}", region.chrom, region.start[0], *region.end.last().unwrap(), region.name, region.class).unwrap();
+        writeln!(ofile, "{}\t{}\t{}\t{}\t{}", region.chrom, region.start, region.end, region.name, region.class).unwrap();
     }
     let mut ofile = File::create(ocellfile).unwrap();
     for coolfile in coolfiles {

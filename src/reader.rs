@@ -59,8 +59,8 @@ pub fn parse_chromsizes(file: &str, binsize: u32) -> Vec<Region> {
                 while end < chromsize {
                     regions.push(Region {
                         chrom: chrom.clone(),
-                        start: vec![start],
-                        end: vec![end],
+                        start,
+                        end,
                         name: format!("{}:{}-{}", chrom, start, end),
                         class: "bin".to_string(),
                     });
@@ -70,8 +70,8 @@ pub fn parse_chromsizes(file: &str, binsize: u32) -> Vec<Region> {
                     if end >= chromsize {
                         regions.push(Region {
                             chrom: chrom.clone(),
-                            start: vec![start],
-                            end: vec![chromsize],
+                            start,
+                            end: chromsize,
                             name: format!("{}:{}-{}", chrom, start, end),
                             class: "bin".to_string(),
                         });
@@ -113,31 +113,15 @@ pub fn parse_region(reg: String, class: String) -> Vec<Region> {
                 } else {
                     format!("{}:{}-{}", chrom, start, end)
                 };
-                // check if start, end have commas
-                if start.contains(",") {
-                    let start: Vec<u32> = start
-                        .split(',')
-                        .map(|x| x.parse::<u32>().unwrap())
-                        .collect();
-                    let end: Vec<u32> = end.split(',').map(|x| x.parse::<u32>().unwrap()).collect();
-                    regions.push(Region {
-                        chrom,
-                        start,
-                        end,
-                        name,
-                        class: class.to_string(),
-                    });
-                } else {
-                    let start = start.parse::<u32>().unwrap();
-                    let end = end.parse::<u32>().unwrap();
-                    regions.push(Region {
-                        chrom,
-                        start: vec![start],
-                        end: vec![end],
-                        name,
-                        class: class.to_string(),
-                    });
-                }
+                let start = start.parse::<u32>().unwrap();
+                let end = end.parse::<u32>().unwrap();
+                regions.push(Region {
+                    chrom,
+                    start,
+                    end,
+                    name,
+                    class: class.to_string(),
+                });
             }
             Err(_e) => {
                 panic!("Error reading file {}", sample);
