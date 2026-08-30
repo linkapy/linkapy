@@ -28,15 +28,10 @@ pub fn parse_cools(
     let logging = PyModule::import(py, "logging")?;
     let logger = logging.call_method1("getLogger", ())?;
 
-    let mut coolfiles: Vec<String> = Vec::new();
-    let mut regions: Vec<String> = Vec::new();
-    let mut regionlabels: Vec<String> = Vec::new();
-    let mut blacklist: Vec<String> = Vec::new();
-
-    coolfiles = _coolfiles.extract(py).expect("Failed to retrieve allcoolfiles.");
-    regions = _regions.extract(py).expect("Failed to retrieve regions.");
-    regionlabels = _regionlabels.extract(py).expect("Failed to retrieve region labels.");
-    blacklist = _blacklist.extract(py).expect("Failed to retrieve blacklist regions.");
+    let coolfiles: Vec<String> = _coolfiles.extract(py).expect("Failed to retrieve allcoolfiles.");
+    let regions: Vec<String> = _regions.extract(py).expect("Failed to retrieve regions.");
+    let regionlabels: Vec<String> = _regionlabels.extract(py).expect("Failed to retrieve region labels.");
+    let blacklist: Vec<String> = _blacklist.extract(py).expect("Failed to retrieve blacklist regions.");
     // regions and regionlabels should always be same length.
     assert_eq!(regions.len(), regionlabels.len());
 
