@@ -1,15 +1,109 @@
+use crate::reader::{parse_chromsizes, parse_region, read_meth};
+use crate::types::{MethRegion, Region};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
-use std::fs::File;
-use std::io::{Write};
-use rayon::prelude::*;
 use rayon::ThreadPoolBuilder;
+use rayon::prelude::*;
+use sprs::io::write_matrix_market;
+use sprs::{CsMat, TriMat};
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use sprs::{CsMat, TriMat};
-use sprs::io::write_matrix_market;
-use crate::types::{Region};
-use crate::reader::{read_meth, parse_chromsizes, parse_region};
+use std::fs::File;
+use std::io::Write;
+use std::sync::Arc;
+
+pub struct CellQc {
+    pub n_sites: u32,
+    pub n_chroms: usize,
+    pub n_regions_covered: usize,
+    pub region_coverage_rate: f32,
+    pub total_depth: u64,
+    pub total_meth: u64,
+    pub mean_coverage: f32,
+    pub global_meth_frac: f32,
+}
+
+pub fn compute_cell_qc(
+    methregions: &[MethRegion],
+    n_chroms: usize,
+    n_regions_covered: usize,
+    n_regions: usize,
+) -> CellQc {
+    let n_sites = methregions.len() as u32;
+    let mut total_depth: u64 = 0;
+    let mut total_meth: u64 = 0;
+    for x in methregions {
+        total_depth += x.total as u64;
+        total_meth += x.meth as u64;
+    }
+    let mean_coverage = if n_sites > 0 {
+        total_depth as f32 / n_sites as f32
+    } else {
+        f32::NAN
+    };
+    let global_meth_frac = if total_depth > 0 {
+        total_meth as f32 / total_depth as f32
+    } else {
+        f32::NAN
+    };
+    let region_coverage_rate = if n_regions > 0 {
+        n_regions_covered as f32 / n_regions as f32
+    } else {
+        f32::NAN
+    };
+    CellQc {
+        n_sites,
+        n_chroms,
+        n_regions_covered,
+        region_coverage_rate,
+        total_depth,
+        total_meth,
+        mean_coverage,
+        global_meth_frac,
+    }
+}
+
+pub struct RegionQc {
+    pub n_cells_covered: Vec<u32>,
+    pub missingness: Vec<f32>,
+    pub mean_frac: Vec<f32>,
+    pub std_frac: Vec<f32>,
+}
+
+pub fn finalize_region_qc(
+    n_cells_covered: Vec<u32>,
+    frac_sum: &[f64],
+    frac_sumsq: &[f64],
+    n_files: usize,
+) -> RegionQc {
+    let n_regions = n_cells_covered.len();
+    let mut missingness = Vec::with_capacity(n_regions);
+    let mut mean_frac = Vec::with_capacity(n_regions);
+    let mut std_frac = Vec::with_capacity(n_regions);
+    for j in 0..n_regions {
+        let n = n_cells_covered[j];
+        missingness.push(if n_files > 0 {
+            1.0 - (n as f32 / n_files as f32)
+        } else {
+            f32::NAN
+        });
+        if n > 0 {
+            let mean = frac_sum[j] / n as f64;
+            let variance = (frac_sumsq[j] / n as f64 - mean * mean).max(0.0);
+            mean_frac.push(mean as f32);
+            std_frac.push(variance.sqrt() as f32);
+        } else {
+            mean_frac.push(f32::NAN);
+            std_frac.push(f32::NAN);
+        }
+    }
+    RegionQc {
+        n_cells_covered,
+        missingness,
+        mean_frac,
+        std_frac,
+    }
+}
 
 #[allow(clippy::too_many_arguments)]
 #[pyfunction]
@@ -22,19 +116,24 @@ pub fn parse_cools(
     threads: usize,
     prefix: &str,
     chromsizes: &str,
-    binsize: u32
+    binsize: u32,
 ) -> PyResult<()> {
     // Set up the logging from python
     let logging = PyModule::import(py, "logging")?;
     let logger = logging.call_method1("getLogger", ())?;
 
-    let coolfiles: Vec<String> = _coolfiles.extract(py).expect("Failed to retrieve allcoolfiles.");
+    let coolfiles: Vec<String> = _coolfiles
+        .extract(py)
+        .expect("Failed to retrieve allcoolfiles.");
     let regions: Vec<String> = _regions.extract(py).expect("Failed to retrieve regions.");
-    let regionlabels: Vec<String> = _regionlabels.extract(py).expect("Failed to retrieve region labels.");
-    let blacklist: Vec<String> = _blacklist.extract(py).expect("Failed to retrieve blacklist regions.");
+    let regionlabels: Vec<String> = _regionlabels
+        .extract(py)
+        .expect("Failed to retrieve region labels.");
+    let blacklist: Vec<String> = _blacklist
+        .extract(py)
+        .expect("Failed to retrieve blacklist regions.");
     // regions and regionlabels should always be same length.
     assert_eq!(regions.len(), regionlabels.len());
-
 
     let blacklist_regions: Option<Vec<Region>> = if blacklist.is_empty() {
         logger.call_method1("info", ("\'keep_cool\': No blacklist provided.",))?;
@@ -46,48 +145,60 @@ pub fn parse_cools(
         }
         logger.call_method1(
             "info",
-            (format!("\'keep_cool\': Blacklist(s) parsed. {} regions.", blacklist_regions.len()),)
+            (format!(
+                "\'keep_cool\': Blacklist(s) parsed. {} regions.",
+                blacklist_regions.len()
+            ),),
         )?;
         Some(blacklist_regions)
     };
 
     let parsed_regions = if regions.is_empty() {
-            logger.call_method1("info", ("\'keep_cool\': running in chromsize mode.",))?;
-            parse_chromsizes(chromsizes, binsize)
-        } else {
-            logger.call_method1("info", ("\'keep_cool\': running in regions mode.",))?;
-            // Parse regions.
-            let mut parsed_regions: Vec<Region> = Vec::new();
-            for (_r, _l) in regions.into_iter().zip(regionlabels.into_iter()) {
-                parsed_regions.extend(parse_region(_r, _l));
+        logger.call_method1("info", ("\'keep_cool\': running in chromsize mode.",))?;
+        parse_chromsizes(chromsizes, binsize)
+    } else {
+        logger.call_method1("info", ("\'keep_cool\': running in regions mode.",))?;
+        // Parse regions.
+        let mut parsed_regions: Vec<Region> = Vec::new();
+        for (_r, _l) in regions.into_iter().zip(regionlabels.into_iter()) {
+            parsed_regions.extend(parse_region(_r, _l));
+        }
+        // Sort per chromosome and start position.
+        parsed_regions.sort_unstable_by(|a, b| {
+            // First, compare by `chrom`
+            let chrom_order = a.chrom.cmp(&b.chrom);
+            if chrom_order != Ordering::Equal {
+                return chrom_order;
             }
-            // Sort per chromosome and start position.
-            parsed_regions.sort_by(|a, b| {
-                // First, compare by `chrom`
-                let chrom_order = a.chrom.cmp(&b.chrom);
-                if chrom_order != Ordering::Equal {
-                    return chrom_order;
-                }
-                a.start[0].cmp(&b.start[0])
-            });
-            parsed_regions
-        };
+            a.start.cmp(&b.start)
+        });
+        parsed_regions
+    };
 
     logger.call_method1(
         "info",
-        (format!("\'keep_cool\': Found {} regions.", parsed_regions.len()),)
+        (format!(
+            "\'keep_cool\': Found {} regions.",
+            parsed_regions.len()
+        ),),
     )?;
-    let pool = ThreadPoolBuilder::new().num_threads(threads).build().unwrap();
+    let pool = ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .build()
+        .unwrap();
     logger.call_method1(
         "info",
-        (format!("\'keep_cool\': Starting pool with {} threads.", threads),)
+        (format!(
+            "\'keep_cool\': Starting pool with {} threads.",
+            threads
+        ),),
     )?;
-    let blacklist_by_chrom: HashMap<String, Vec<(u32, u32)>> = match &blacklist_regions {
+    let blacklist_by_chrom: HashMap<Arc<str>, Vec<(u32, u32)>> = match &blacklist_regions {
         Some(blacklist) => {
-            let mut map: HashMap<String, Vec<(u32, u32)>> = HashMap::new();
+            let mut map: HashMap<Arc<str>, Vec<(u32, u32)>> = HashMap::new();
             for bl in blacklist.iter() {
-                let start = bl.start[0];
-                let end = *bl.end.last().unwrap();
+                let start = bl.start;
+                let end = bl.end;
                 map.entry(bl.chrom.clone()).or_default().push((start, end));
             }
             for intervals in map.values_mut() {
@@ -98,97 +209,166 @@ pub fn parse_cools(
         None => HashMap::new(),
     };
     // Metrics
-    let aggregated_metrics: Vec<Vec<((f32, f32, f32), f32)>>  = pool.install(|| {
-        coolfiles
-            .par_iter()
-            .map(|methfile| {
-                let mut methregions = read_meth(methfile);
-                
-                // Sort per chromosome and position (cannot really assume this at this point, though most times it'll be.)
-                methregions.sort_by(|a, b| {
-                    let chrom_order = a.chrom.cmp(&b.chrom);
-                    if chrom_order != Ordering::Equal {
-                        return chrom_order;
+    let aggregated_metrics: Vec<(Vec<(usize, f32, f32, f32)>, Vec<(usize, f32)>, CellQc)> = pool
+        .install(|| {
+            coolfiles
+                .par_iter()
+                .map(|methfile| {
+                    let mut methregions = read_meth(methfile);
+
+                    // Sort per chromosome and position (cannot really assume this at this point, though most times it'll be.)
+                    methregions.sort_unstable_by(|a, b| {
+                        let chrom_order = a.chrom.cmp(&b.chrom);
+                        if chrom_order != Ordering::Equal {
+                            return chrom_order;
+                        }
+                        a.pos.cmp(&b.pos)
+                    });
+
+                    // Index regions by chromosome
+                    let mut by_chrom: HashMap<Arc<str>, (usize, usize)> = HashMap::new();
+                    let mut start = 0;
+                    for i in 1..=methregions.len() {
+                        if i == methregions.len()
+                            || methregions[i].chrom != methregions[start].chrom
+                        {
+                            by_chrom.insert(methregions[start].chrom.clone(), (start, i));
+                            start = i;
+                        }
                     }
-                    a.pos.cmp(&b.pos)
-                });
 
-                // Index regions by chromosome
-                let mut by_chrom: HashMap<String, (usize, usize)> = HashMap::new();
-                let mut start = 0;
-                for i in 1..=methregions.len() {
-                    if i == methregions.len() || methregions[i].chrom != methregions[start].chrom {
-                        by_chrom.insert(methregions[start].chrom.clone(), (start, i));
-                        start = i;
-                    }
-                }
+                    let region_results: Vec<(usize, f32, f32, f32, f32)> = parsed_regions
+                        .par_iter()
+                        .enumerate()
+                        .map(|(j, region)| {
+                            let (meth_sum, total_sum, sites, frac_sum, frac_count) =
+                                if let Some((s, e)) = by_chrom.get(&region.chrom) {
+                                    let chrom_regions = &methregions[*s..*e];
+                                    let start_idx =
+                                        chrom_regions.partition_point(|x| x.pos < region.start);
+                                    let end_idx =
+                                        chrom_regions.partition_point(|x| x.pos < region.end);
+                                    let mut meth_sum = f32::NAN;
+                                    let mut total_sum = f32::NAN;
+                                    let mut sites = f32::NAN;
+                                    let mut frac_sum = 0.0f32;
+                                    let mut frac_count = 0.0f32;
 
-                parsed_regions
-                    .par_iter()
-                    .map(|region| {
-                        let (meth_sum, total_sum, sites, frac_sum, frac_count) = if let Some((s, e)) = by_chrom.get(&region.chrom) {
-                            let chrom_regions = &methregions[*s..*e];
-                            let start_idx = chrom_regions.partition_point(|x| x.pos < region.start[0]);
-                            let end_idx = chrom_regions.partition_point(|x| x.pos < *region.end.last().unwrap());
-                            let mut meth_sum = f32::NAN;
-                            let mut total_sum = f32::NAN;
-                            let mut sites = f32::NAN;
-                            let mut frac_sum = 0.0f32;
-                            let mut frac_count = 0.0f32;
-
-                            let blacklist_intervals = blacklist_by_chrom.get(&region.chrom);
-                            for x in &chrom_regions[start_idx..end_idx] {
-                                let is_blacklisted = if let Some(intervals) = blacklist_intervals {
-                                    let pos = x.pos;
-                                    let idx = intervals.partition_point(|(s, _)| *s <= pos);
-                                    if idx == 0 {
-                                        false
-                                    } else {
-                                        let (s, e) = intervals[idx - 1];
-                                        pos >= s && pos < e
+                                    let blacklist_intervals = blacklist_by_chrom.get(&region.chrom);
+                                    for x in &chrom_regions[start_idx..end_idx] {
+                                        let is_blacklisted = if let Some(intervals) =
+                                            blacklist_intervals
+                                        {
+                                            let pos = x.pos;
+                                            let idx = intervals.partition_point(|(s, _)| *s <= pos);
+                                            if idx == 0 {
+                                                false
+                                            } else {
+                                                let (s, e) = intervals[idx - 1];
+                                                pos >= s && pos < e
+                                            }
+                                        } else {
+                                            false
+                                        };
+                                        if is_blacklisted {
+                                            continue;
+                                        }
+                                        let meth = x.meth as f32;
+                                        let total = x.total as f32;
+                                        let frac = meth / total; // total will never be zero.
+                                        meth_sum = if meth_sum.is_nan() {
+                                            meth
+                                        } else {
+                                            meth_sum + meth
+                                        };
+                                        total_sum = if total_sum.is_nan() {
+                                            total
+                                        } else {
+                                            total_sum + total
+                                        };
+                                        sites = if sites.is_nan() { 1.0 } else { sites + 1.0 };
+                                        if !frac.is_nan() {
+                                            frac_sum += frac;
+                                            frac_count += 1.0;
+                                        }
                                     }
+                                    (meth_sum, total_sum, sites, frac_sum, frac_count)
                                 } else {
-                                    false
+                                    (f32::NAN, f32::NAN, f32::NAN, 0.0, 0.0)
                                 };
-                                if is_blacklisted {
-                                    continue;
-                                }
-                                let meth = x.meth as f32;
-                                let total = x.total as f32;
-                                let frac = meth / total; // total will never be zero.
-                                meth_sum = if meth_sum.is_nan() { meth } else { meth_sum + meth };
-                                total_sum = if total_sum.is_nan() { total } else { total_sum + total };
-                                sites = if sites.is_nan() { 1.0 } else { sites + 1.0 };
-                                if !frac.is_nan() {
-                                    frac_sum += frac;
-                                    frac_count += 1.0;
-                                }
-                            }
-                            (meth_sum, total_sum, sites, frac_sum, frac_count)
-                        } else {
-                            (f32::NAN, f32::NAN, f32::NAN, 0.0, 0.0)
-                        };
 
-                        let mean_fraction = if frac_count > 0.0 {
-                            frac_sum / frac_count
-                        } else {
-                            f32::NAN
-                        };
+                            let mean_fraction = if frac_count > 0.0 {
+                                frac_sum / frac_count
+                            } else {
+                                f32::NAN
+                            };
 
-                        ((meth_sum, total_sum, sites), mean_fraction)
-                    })
-            .collect()
-            })
-    .collect()
-    });
-    
-    let regvals: Vec<Vec<(f32, f32, f32)>> = aggregated_metrics.iter().map(|v| v.iter().map(|(vals, _)| *vals).collect()).collect();
-    let fractions_vec: Vec<Vec<f32>> = aggregated_metrics.iter().map(|v| v.iter().map(|(_, fracs)| *fracs).collect()).collect();
-    let fracm = frac_to_sparse(fractions_vec);
-    let (methm, covm, sitem) = tupvec_to_sparse(regvals);
+                            (j, meth_sum, total_sum, sites, mean_fraction)
+                        })
+                        .collect();
+
+                    let mut vals: Vec<(usize, f32, f32, f32)> = Vec::new();
+                    let mut fracs: Vec<(usize, f32)> = Vec::new();
+                    for (j, meth_sum, total_sum, sites, mean_fraction) in region_results {
+                        // meth_sum/total_sum/sites always transition out of NaN together (see loop above).
+                        if !meth_sum.is_nan() {
+                            vals.push((j, meth_sum, total_sum, sites));
+                        }
+                        if !mean_fraction.is_nan() {
+                            fracs.push((j, mean_fraction));
+                        }
+                    }
+                    let cell_qc = compute_cell_qc(
+                        &methregions,
+                        by_chrom.len(),
+                        vals.len(),
+                        parsed_regions.len(),
+                    );
+                    (vals, fracs, cell_qc)
+                })
+                .collect()
+        });
+
+    let n_regions = parsed_regions.len();
+    let n_files = coolfiles.len();
+    let mut meth_trimat = TriMat::new((n_files, n_regions));
+    let mut cov_trimat = TriMat::new((n_files, n_regions));
+    let mut site_trimat = TriMat::new((n_files, n_regions));
+    let mut frac_trimat = TriMat::new((n_files, n_regions));
+    let mut region_cell_count: Vec<u32> = vec![0; n_regions];
+    let mut region_frac_sum: Vec<f64> = vec![0.0; n_regions];
+    let mut region_frac_sumsq: Vec<f64> = vec![0.0; n_regions];
+    let mut cell_qcs: Vec<CellQc> = Vec::with_capacity(n_files);
+    for (i, (vals, fracs, cell_qc)) in aggregated_metrics.into_iter().enumerate() {
+        for (j, meth, cov, sites) in vals {
+            meth_trimat.add_triplet(i, j, meth);
+            cov_trimat.add_triplet(i, j, cov);
+            site_trimat.add_triplet(i, j, sites);
+        }
+        for (j, frac) in fracs {
+            frac_trimat.add_triplet(i, j, frac);
+            region_cell_count[j] += 1;
+            region_frac_sum[j] += frac as f64;
+            region_frac_sumsq[j] += (frac as f64) * (frac as f64);
+        }
+        cell_qcs.push(cell_qc);
+    }
+    let region_qc = finalize_region_qc(
+        region_cell_count,
+        &region_frac_sum,
+        &region_frac_sumsq,
+        n_files,
+    );
+    let methm: CsMat<f32> = meth_trimat.to_csr();
+    let covm: CsMat<f32> = cov_trimat.to_csr();
+    let sitem: CsMat<f32> = site_trimat.to_csr();
+    let fracm: CsMat<f32> = frac_trimat.to_csr();
     logger.call_method1(
         "info",
-        (format!("\'keep_cool\': Finished parsing {} files.", coolfiles.len()),)
+        (format!(
+            "\'keep_cool\': Finished parsing {} files.",
+            coolfiles.len()
+        ),),
     )?;
     // Define output files taken the prefix.
     let ometh = format!("{}.meth.mtx", prefix);
@@ -198,6 +378,8 @@ pub fn parse_cools(
 
     let oregionfile: String = format!("{}.regions.tsv", prefix);
     let ocellfile: String = format!("{}.cells.tsv", prefix);
+    let oregionqc: String = format!("{}.region_qc.tsv", prefix);
+    let ocellqc: String = format!("{}_qc_mqc.tsv", prefix);
     write_matrix_market(ometh, &methm).unwrap();
     write_matrix_market(ocov, &covm).unwrap();
     write_matrix_market(osite, &sitem).unwrap();
@@ -205,21 +387,85 @@ pub fn parse_cools(
 
     logger.call_method1(
         "info",
-        (format!("\'keep_cool\': Finished writing matrices with prefix {}.", prefix),)
+        (format!(
+            "\'keep_cool\': Finished writing matrices with prefix {}.",
+            prefix
+        ),),
     )?;
 
     let mut ofile = File::create(oregionfile).unwrap();
     writeln!(ofile, "chrom\tstart\tend\tname\tclass").unwrap();
-    for region in parsed_regions {
-        writeln!(ofile, "{}\t{}\t{}\t{}\t{}", region.chrom, region.start[0], *region.end.last().unwrap(), region.name, region.class).unwrap();
+    for region in &parsed_regions {
+        writeln!(
+            ofile,
+            "{}\t{}\t{}\t{}\t{}",
+            region.chrom, region.start, region.end, region.name, region.class
+        )
+        .unwrap();
     }
     let mut ofile = File::create(ocellfile).unwrap();
-    for coolfile in coolfiles {
+    for coolfile in &coolfiles {
         writeln!(ofile, "{}", coolfile).unwrap();
     }
+
+    let mut ofile = File::create(oregionqc).unwrap();
+    writeln!(
+        ofile,
+        "chrom\tstart\tend\tname\tclass\tn_cells_covered\tmissingness\tmean_frac\tstd_frac"
+    )
+    .unwrap();
+    for (j, region) in parsed_regions.iter().enumerate() {
+        writeln!(
+            ofile,
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            region.chrom,
+            region.start,
+            region.end,
+            region.name,
+            region.class,
+            region_qc.n_cells_covered[j],
+            region_qc.missingness[j],
+            region_qc.mean_frac[j],
+            region_qc.std_frac[j]
+        )
+        .unwrap();
+    }
+
+    let mut ofile = File::create(ocellqc).unwrap();
+    writeln!(ofile, "# id: 'linkapy_cell_qc'").unwrap();
+    writeln!(ofile, "# section_name: 'Linkapy Per-Cell Methylation QC'").unwrap();
+    writeln!(
+        ofile,
+        "# description: 'Per-cell QC metrics computed during methylation aggregation.'"
+    )
+    .unwrap();
+    writeln!(ofile, "# plot_type: 'table'").unwrap();
+    writeln!(
+        ofile,
+        "Sample\tn_sites\tmean_coverage\tglobal_meth_frac\tn_regions_covered\tregion_coverage_rate\tn_chroms"
+    )
+    .unwrap();
+    for (coolfile, qc) in coolfiles.iter().zip(cell_qcs.iter()) {
+        writeln!(
+            ofile,
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            coolfile,
+            qc.n_sites,
+            qc.mean_coverage,
+            qc.global_meth_frac,
+            qc.n_regions_covered,
+            qc.region_coverage_rate,
+            qc.n_chroms
+        )
+        .unwrap();
+    }
+
     logger.call_method1(
         "info",
-        (format!("\'keep_cool\': Finished writing metadata with prefix {}.", prefix),)
+        (format!(
+            "\'keep_cool\': Finished writing metadata with prefix {}.",
+            prefix
+        ),),
     )?;
 
     Ok(())
