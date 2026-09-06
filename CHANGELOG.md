@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.10.0](https://github.com/linkapy/linkapy/compare/v1.9.0...v1.10.0) (2026-09-06)
+
+
+### Features
+
+* logger version dump ([#77](https://github.com/linkapy/linkapy/issues/77)) ([971487e](https://github.com/linkapy/linkapy/commit/971487e79f6663550cb3b8af7b4590d9cb5a54b9))
+* mqc compatible QC ([18d97e5](https://github.com/linkapy/linkapy/commit/18d97e51b9fed90649a37df648cb75b333e184b9))
+* performance gain, drop dense setting ([#80](https://github.com/linkapy/linkapy/issues/80)) ([18d97e5](https://github.com/linkapy/linkapy/commit/18d97e51b9fed90649a37df648cb75b333e184b9))
+
 ## [1.9.0](https://github.com/linkapy/linkapy/compare/v1.8.0...v1.9.0) (2026-08-15)
 
 
