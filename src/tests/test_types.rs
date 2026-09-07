@@ -13,7 +13,7 @@ mod tests {
         assert_eq!(
             region,
             MethRegion {
-                chrom: "chr1".to_string(),
+                chrom: "chr1".into(),
                 pos: 0,
                 meth: 1,
                 total: 1
@@ -76,7 +76,7 @@ mod tests {
         assert_eq!(
             region,
             MethRegion {
-                chrom: "chr1".to_string(),
+                chrom: "chr1".into(),
                 pos: 0,
                 meth: 1,
                 total: 1
@@ -139,7 +139,7 @@ mod tests {
         assert_eq!(
             region,
             MethRegion {
-                chrom: "chr1".to_string(),
+                chrom: "chr1".into(),
                 pos: 0,
                 meth: 1,
                 total: 1
@@ -201,7 +201,7 @@ mod tests {
         assert_eq!(
             region,
             MethRegion {
-                chrom: "chr1".to_string(),
+                chrom: "chr1".into(),
                 pos: 0,
                 meth: 1,
                 total: 1
@@ -270,7 +270,7 @@ mod tests {
         assert_eq!(
             region,
             MethRegion {
-                chrom: "chr1".to_string(),
+                chrom: "chr1".into(),
                 pos: 0,
                 meth: 1,
                 total: 1

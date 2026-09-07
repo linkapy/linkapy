@@ -24,7 +24,7 @@ class Linkapy_Parser:
     '''
     Linkapy_Parser mainly functions to create matrices (arrow format for RNA, mtx format for accessibility / methylation)
     from directories containing processed multi-modal single-cell data.
-    
+
     At least one of both items should be provided:
      - methylation_path and/or transcriptome_path
      - regions or chromsizes file (if methylation_path is provided).
@@ -43,20 +43,20 @@ class Linkapy_Parser:
     :param str project: Name of the project. Will be treated as a prefix for the output files. Defaults to 'linkapy'.
     '''
     def __init__(
-        self, 
-        methylation_path=None, 
-        transcriptome_path=None, 
-        output='linkapy_output',  
+        self,
+        methylation_path=None,
+        transcriptome_path=None,
+        output='linkapy_output',
         methylation_pattern=('*GC*tsv.gz',),
         methylation_pattern_names=(),
-        transcriptome_pattern=('*tsv',), 
+        transcriptome_pattern=('*tsv',),
         transcriptome_pattern_names=(),
-        NOMe=False, 
-        threads=1, 
-        chromsizes=None, 
-        regions=None, 
-        blacklist=None, 
-        binsize=10000, 
+        NOMe=False,
+        threads=1,
+        chromsizes=None,
+        regions=None,
+        blacklist=None,
+        binsize=10000,
         project='linkapy',
         verbose=False
     ):
@@ -66,7 +66,7 @@ class Linkapy_Parser:
 
         # Set up log
         self.logfile = self.output / f'{self.project}.log'
-        self.logger = setup_logger(self.logfile, verbose)        
+        self.logger = setup_logger(self.logfile, verbose)
 
         console = Console()
         console.rule("[bold green]Linkapy Parser[/bold green]")
@@ -93,14 +93,14 @@ class Linkapy_Parser:
             self.logger.info("NOMe flag set. Methylation pattern will be set to ('*GCHN*.tsv.gz', '*WCGN*tsv.gz'), names to ('Acc', 'Meth').")
             methylation_pattern = ('*GCHN*tsv.gz', '*WCGN*.tsv.gz')
             methylation_pattern_names = ('Acc', 'Meth')
-        
+
         # Set up paths
         self.methylation_path = Path(methylation_path) if methylation_path else None
         self.transcriptome_path = Path(transcriptome_path) if transcriptome_path else None
         self.chromsizes = Path(chromsizes) if chromsizes else None
         self.regions = [Path(r) for r in regions] if regions else []
         self.blacklist = [Path(b) for b in blacklist] if blacklist else []
-        
+
         # settings and flags
         self.threads = threads
         self.methylation_pattern = methylation_pattern
@@ -117,7 +117,7 @@ class Linkapy_Parser:
         self._validate()
         # Discover files to aggregate.
         self._glob()
-    
+
     def _validate(self):
         '''
         Validate the provided paths and parameters.
@@ -155,7 +155,7 @@ class Linkapy_Parser:
             for _ in self.transcriptome_pattern:
                     if '*' not in _:
                         self.logger.warning(f"Transcriptome pattern {_} doesn't contain an asterisk. Are you sure this is what you want ?")
-        
+
     def _glob(self):
         '''
         Discover files to aggregate over based on the paths and patterns provided.
@@ -194,7 +194,7 @@ class Linkapy_Parser:
                 _countf = _prefix.with_name(_prefix.name + "_counts.arrow")
                 _metaf = _prefix.with_name(_prefix.name + "_meta.arrow")
                 parse_rna(files, _prefix)
-        
+
         # Methylation
         if self.methylation_files:
             (self.output / 'matrices').mkdir(parents=True, exist_ok=True)
@@ -223,7 +223,6 @@ class Linkapy_Parser:
     def dump_mudata(self):
         _adatas = []
         _patterns = []
-        #if self.transcriptome_files:
         if self.transcriptome_files:
             for pattern in self.transcriptome_files:
                 self.logger.info(f"Creating anndata object for \'{pattern}\'")
@@ -333,7 +332,7 @@ def read_meth_to_anndata(prefix) -> ad.AnnData:
     cellp = prefix.with_name(prefix.name + ".cells.tsv")
     regp = prefix.with_name(prefix.name + ".regions.tsv")
     X = sp.io.mmread(methp, spmatrix=False).tocsr()
-    
+
     _obs = pl.read_csv(cellp, separator='\t', has_header=False).to_pandas()
     obs_index = pd.Index([Path(i).name.split('.')[0] for i in _obs['column_1']], dtype="object")
     _obs = pd.DataFrame(index=obs_index)
@@ -378,7 +377,7 @@ def match_cells(_l: list[list[str]], patterns: list[str], logger) -> tuple[list[
         if a[col].duplicated().any():
             logger.info(f"Duplicate cell names after matching: {a[col][a[col].duplicated(keep=False)].tolist()}")
             return (None, None)
-    
+
     a['common_name'] = a.apply(lambda row: get_common_cellname(row.values), axis=1)
     # Construct a 'renamed' nested list so that the obs can be renamed.
     renl = []
