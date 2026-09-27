@@ -47,6 +47,8 @@ Each modality is stored under ``mdata.mod`` using the key ``RNA_<pattern>`` or `
 
 Each modality's ``.var`` index is additionally prefixed with its pattern (e.g. ``METH_WCGN:<region>``) to keep variable names unique across modalities.
 
+Methylation modalities additionally carry per-cell QC in ``.obs`` and per-region QC in ``.var``, computed during aggregation; see :doc:`notes` for what each column means.
+
 .. click:: linkapy.CLI:linkapy
    :prog: linkapy CLI
    :nested: full
