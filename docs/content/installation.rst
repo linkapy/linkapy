@@ -1,6 +1,8 @@
 Installation
 ------------
 
+Linkapy requires Python >= 3.10, < 3.13.
+
 Linkapy can be installed via pypi:
 
 .. code-block:: bash
@@ -9,7 +11,7 @@ Linkapy can be installed via pypi:
 
 A development version can be installed from github, by cloning the repository.
 Note that a development version requires you to have `Maturin <https://github.com/PyO3/maturin>`_ installed.
-Additionaly, you need to have `Rust <https://www.rust-lang.org/tools/install>`_ installed as well.
+Additionaly, you need to have `Rust <https://www.rust-lang.org/tools/install>`_ (1.85 or newer, for 2024 edition support) installed as well.
 Linkapy can then be installed with:
 
 .. code-block:: bash
