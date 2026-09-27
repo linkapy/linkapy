@@ -336,11 +336,24 @@ def read_meth_to_anndata(prefix) -> ad.AnnData:
 
     _obs = pl.read_csv(cellp, separator='\t', has_header=False).to_pandas()
     obs_index = pd.Index([Path(i).name.split('.')[0] for i in _obs['column_1']], dtype="object")
-    _cell_qc = pl.read_csv(cellqcp, separator='\t', has_header=True, comment_prefix='#').to_pandas()
+    _cell_qc = pl.read_csv(
+        cellqcp, separator='\t', has_header=True, comment_prefix='#',
+        schema_overrides={
+            'n_sites': pl.Int64, 'mean_coverage': pl.Float64,
+            'global_meth_frac': pl.Float64, 'n_regions_covered': pl.Int64,
+            'region_coverage_rate': pl.Float64, 'n_chroms': pl.Int64,
+        },
+    ).to_pandas()
     _cell_qc.index = pd.Index([Path(i).name.split('.')[0] for i in _cell_qc['Sample']], dtype="object")
     del _cell_qc['Sample']
     _obs = _cell_qc.reindex(obs_index)
-    _var = pl.read_csv(regqcp, separator='\t', has_header=True).to_pandas()
+    _var = pl.read_csv(
+        regqcp, separator='\t', has_header=True,
+        schema_overrides={
+            'n_cells_covered': pl.Int64, 'missingness': pl.Float64,
+            'mean_frac': pl.Float64, 'std_frac': pl.Float64,
+        },
+    ).to_pandas()
     _var.index = _var.index.astype(str)
     annd = ad.AnnData(
         X=X,
