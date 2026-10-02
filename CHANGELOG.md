@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.0](https://github.com/linkapy/linkapy/compare/v1.10.0...v1.11.0) (2026-10-02)
+
+
+### Features
+
+* QC in mudata object ([c0b0c9b](https://github.com/linkapy/linkapy/commit/c0b0c9b04b0b1926e6dd7621276b5b739a207c24))
+
 ## [1.10.0](https://github.com/linkapy/linkapy/compare/v1.9.0...v1.10.0) (2026-09-07)
 
 
